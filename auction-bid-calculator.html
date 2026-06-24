@@ -643,7 +643,7 @@
                   <input id="capitalGainsTax" class="money" inputmode="numeric" value="0" data-money="true">
                   <span class="percent-field"><input id="capitalGainsTaxRate" type="number" value="0" step="0.01" aria-label="양도세율"></span>
                 </div>
-                <span class="input-hint">희망 매도가 기준</span>
+                <span class="input-hint">매매차익 기준</span>
               </label>
 
               <label>
@@ -761,7 +761,7 @@
     const percentCostPairs = {
       acquisitionTax: { amountId: "acquisitionTaxAmount", rateId: "acquisitionTaxRate", base: "bid" },
       legalFee: { amountId: "legalFee", rateId: "legalFeeRate", base: "bid" },
-      capitalGainsTax: { amountId: "capitalGainsTax", rateId: "capitalGainsTaxRate", base: "targetSale" },
+      capitalGainsTax: { amountId: "capitalGainsTax", rateId: "capitalGainsTaxRate", base: "grossProfit" },
       brokerFee: { amountId: "brokerFee", rateId: "brokerRate", base: "targetSale" }
     };
     const percentCostModes = {
@@ -835,7 +835,7 @@
             <li>5억원 초과~10억원 이하: 42%, 누진공제 3,594만원</li>
             <li>10억원 초과: 45%, 누진공제 6,594만원</li>
           </ul>
-          <p>양도세는 희망 매도가 기준의 % 또는 금액으로 직접 입력합니다. 실제 세액은 다른 종합소득, 필요경비, 단기보유, 비교과세 여부에 따라 달라질 수 있습니다.</p>
+          <p>양도세는 가견적용으로 예상 매매차익 기준의 % 또는 금액으로 입력합니다. 이 계산기에서 예상 매매차익은 희망 매도가에서 입찰가를 뺀 금액이며, 실제 세액은 다른 종합소득, 필요경비, 단기보유, 비교과세 여부에 따라 달라질 수 있습니다.</p>
           <p>참고: <a href="https://www.nts.go.kr/nts/cm/cntnts/cntntsView.do?cntntsId=7667&mi=2227" target="_blank" rel="noreferrer">국세청 종합소득세 세율</a>, <a href="https://www.law.go.kr/LSW//lsLawLinkInfo.do?chrClsCd=010202&lsId=001565&lsJoLnkSeq=1000662023&print=print" target="_blank" rel="noreferrer">소득세법 토지 등 매매차익 예정신고</a></p>
         `
       }
@@ -875,7 +875,10 @@
     function currentBaseForPair(pair) {
       const appraisal = numberValue("appraisal");
       const bidRate = numberValue("bidRate");
-      return pair.base === "bid" ? appraisal * bidRate / 100 : numberValue("targetSale");
+      const bid = appraisal * bidRate / 100;
+      if (pair.base === "bid") return bid;
+      if (pair.base === "grossProfit") return Math.max(0, numberValue("targetSale") - bid);
+      return numberValue("targetSale");
     }
 
     function syncPairFromRate(key) {
@@ -925,11 +928,12 @@
       const interest = loan * input.interestRate / 100 * input.holdMonths / 12;
       const extraLoanCost = loan * input.extraLoanRate / 100;
       const holdingTotal = input.holdingFee + input.evictionFee + input.repairFee + input.otherFee + interest + extraLoanCost;
-      const capitalGainsTax = input.capitalGainsTaxMode === "rate" ? input.targetSale * input.capitalGainsTaxRate / 100 : input.capitalGainsTax;
+      const grossProfit = input.targetSale - bid;
+      const taxableProfit = Math.max(0, grossProfit);
+      const capitalGainsTax = input.capitalGainsTaxMode === "rate" ? taxableProfit * input.capitalGainsTaxRate / 100 : input.capitalGainsTax;
       const brokerFee = input.brokerFeeMode === "rate" ? input.targetSale * input.brokerRate / 100 : input.brokerFee;
       const acquisitionTotal = acquisitionTax + legalFee;
       const sellCost = capitalGainsTax + brokerFee;
-      const grossProfit = input.targetSale - bid;
       const netProfit = input.targetSale - bid - acquisitionTotal - holdingTotal - sellCost;
       const ownCash = bid - loan + acquisitionTotal + holdingTotal;
       const roi = netProfit / Math.max(1, ownCash) * 100;
