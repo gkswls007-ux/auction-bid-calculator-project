@@ -1,0 +1,1208 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>경매 낙찰가 계산기</title>
+  <style>
+    :root {
+      --bg: #f5f6f8;
+      --panel: #ffffff;
+      --line: #d8dde5;
+      --text: #1e232b;
+      --muted: #677182;
+      --blue: #2f5f98;
+      --blue-soft: #e8f0fb;
+      --green: #06705d;
+      --green-soft: #e5f3ef;
+      --red: #c92e42;
+      --red-soft: #f9e3e6;
+      --yellow: #fff8c9;
+      --shadow: 0 10px 28px rgba(21, 30, 43, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    main {
+      width: min(1440px, calc(100vw - 32px));
+      margin: 24px auto;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    .sub {
+      margin: 7px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .badge {
+      flex: 0 0 auto;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      padding: 8px 12px;
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: minmax(320px, 430px) minmax(680px, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .panel-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 13px 16px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcfe;
+      font-weight: 700;
+    }
+
+    .form {
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+
+    fieldset {
+      margin: 0;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      min-width: 0;
+    }
+
+    legend {
+      padding: 0 6px;
+      color: var(--blue);
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .grid.one { grid-template-columns: 1fr; }
+
+    label {
+      display: grid;
+      gap: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.25;
+      min-width: 0;
+    }
+
+    .label-row {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      min-width: 0;
+    }
+
+    .help-button {
+      width: 19px;
+      height: 19px;
+      min-width: 19px;
+      padding: 0;
+      border-radius: 50%;
+      border: 1px solid #b9c4d3;
+      background: #fff;
+      color: var(--blue);
+      font-size: 12px;
+      line-height: 1;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    input,
+    select {
+      width: 100%;
+      min-width: 0;
+      height: 38px;
+      padding: 8px 10px;
+      border: 1px solid #c9d1dc;
+      border-radius: 6px;
+      background: #fff;
+      color: var(--text);
+      font: inherit;
+      font-size: 14px;
+    }
+
+    input.money {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    input:focus,
+    select:focus {
+      outline: 2px solid rgba(47, 95, 152, 0.18);
+      border-color: var(--blue);
+    }
+
+    .money-rate {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 82px;
+      gap: 6px;
+    }
+
+    .percent-field {
+      position: relative;
+      display: block;
+    }
+
+    .percent-field input {
+      padding-right: 25px;
+      text-align: right;
+    }
+
+    .percent-field::after {
+      content: "%";
+      position: absolute;
+      top: 50%;
+      right: 9px;
+      transform: translateY(-50%);
+      color: #6d7788;
+      font-size: 13px;
+      pointer-events: none;
+    }
+
+    .input-hint {
+      color: #8792a3;
+      font-size: 11px;
+      line-height: 1.25;
+    }
+
+    .actions,
+    .storage-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    button {
+      height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--text);
+      font-weight: 700;
+      cursor: pointer;
+      padding: 0 12px;
+    }
+
+    button.primary {
+      border-color: var(--blue);
+      background: var(--blue);
+      color: #fff;
+      flex: 1;
+    }
+
+    button.danger {
+      color: var(--red);
+      border-color: #efc5cb;
+    }
+
+    .storage-status {
+      min-height: 18px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .workbook {
+      display: grid;
+      gap: 14px;
+    }
+
+    .case-box {
+      display: grid;
+      grid-template-columns: 96px 1fr 120px 180px;
+      border: 1px solid #29313c;
+      background: #fff;
+      font-size: 14px;
+    }
+
+    .case-box > div {
+      min-height: 34px;
+      padding: 7px 10px;
+      border-right: 1px solid #29313c;
+      border-bottom: 1px solid #29313c;
+      display: flex;
+      align-items: center;
+    }
+
+    .case-box > div:nth-child(4n) { border-right: 0; }
+    .case-box > div:nth-last-child(-n+4) { border-bottom: 0; }
+
+    .label-cell {
+      background: var(--blue-soft);
+      font-weight: 700;
+      justify-content: center;
+    }
+
+    .value-cell { background: #fffde2; }
+
+    .highlight {
+      display: grid;
+      grid-template-columns: 150px 1fr 150px 170px;
+      border: 1px solid #29313c;
+      background: #fff;
+      font-size: 15px;
+    }
+
+    .highlight > div {
+      min-height: 45px;
+      padding: 9px 12px;
+      border-right: 1px solid #29313c;
+      border-bottom: 1px solid #29313c;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .highlight > div:nth-child(4n) { border-right: 0; }
+    .highlight > div:nth-last-child(-n+4) { border-bottom: 0; }
+
+    .highlight .big {
+      background: var(--yellow);
+      font-weight: 800;
+      font-size: clamp(24px, 3vw, 38px);
+      justify-content: center;
+    }
+
+    .highlight .rate {
+      background: #f4ffe9;
+      font-weight: 800;
+      font-size: 22px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fff;
+      min-width: 0;
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 7px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: clamp(18px, 2.1vw, 25px);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .metric.good strong,
+    .value-positive { color: var(--green); }
+
+    .metric.bad strong,
+    .value-negative { color: var(--red); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      background: #fff;
+      font-size: 13px;
+    }
+
+    th,
+    td {
+      border: 1px solid #29313c;
+      padding: 8px 9px;
+      text-align: right;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-variant-numeric: tabular-nums;
+    }
+
+    th {
+      background: #eef3fa;
+      color: #253246;
+      font-weight: 800;
+    }
+
+    td:first-child,
+    th:first-child {
+      text-align: center;
+      background: #f8f9fb;
+      font-weight: 700;
+      width: 132px;
+    }
+
+    tr.profit td {
+      background: var(--red-soft);
+      font-weight: 800;
+    }
+
+    tr.profit.positive td {
+      background: #fff;
+    }
+
+    tr.profit.positive td:first-child {
+      background: #f8f9fb;
+    }
+
+    tr.best td {
+      background: var(--green-soft);
+      color: var(--green);
+      font-weight: 800;
+    }
+
+    .note {
+      margin: 0;
+      padding: 10px 12px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+      border-top: 1px solid var(--line);
+      background: #fbfcfe;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(16, 22, 31, 0.42);
+      padding: 18px;
+      z-index: 10;
+    }
+
+    .modal-backdrop.open { display: flex; }
+
+    .modal {
+      width: min(640px, 100%);
+      max-height: min(720px, calc(100vh - 36px));
+      overflow: auto;
+      background: #fff;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      box-shadow: 0 20px 60px rgba(17, 24, 39, 0.22);
+    }
+
+    .modal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 15px 17px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcfe;
+    }
+
+    .modal-head strong { font-size: 17px; }
+
+    .modal-close {
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .modal-body {
+      padding: 16px 18px 18px;
+      color: #303946;
+      font-size: 14px;
+      line-height: 1.65;
+    }
+
+    .modal-body h3 {
+      margin: 16px 0 6px;
+      font-size: 14px;
+      color: var(--blue);
+    }
+
+    .modal-body h3:first-child { margin-top: 0; }
+    .modal-body ul { margin: 6px 0 12px; padding-left: 20px; }
+    .modal-body a { color: var(--blue); font-weight: 700; }
+
+    @media (max-width: 1120px) {
+      .shell { grid-template-columns: 1fr; }
+      .case-box { grid-template-columns: 92px 1fr 110px 150px; }
+    }
+
+    @media (max-width: 720px) {
+      main {
+        width: min(100vw - 18px, 1440px);
+        margin: 12px auto;
+      }
+
+      .header { display: block; }
+      .badge { display: inline-block; margin-top: 10px; }
+      .grid, .summary-grid { grid-template-columns: 1fr; }
+      .case-box, .highlight { grid-template-columns: 1fr 1fr; }
+      .storage-actions { flex-wrap: wrap; }
+      .storage-actions button { flex: 1 1 120px; }
+
+      .case-box > div:nth-child(4n),
+      .highlight > div:nth-child(4n) {
+        border-right: 1px solid #29313c;
+      }
+
+      .case-box > div:nth-child(2n),
+      .highlight > div:nth-child(2n) {
+        border-right: 0;
+      }
+
+      .table-wrap { overflow-x: auto; }
+      table { min-width: 760px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="header">
+      <div>
+        <h1>경매 낙찰가 계산기</h1>
+        <p class="sub">사건별 입력값을 저장하고 입찰가별 세후 순수익과 수익률을 비교합니다.</p>
+      </div>
+      <div class="badge">사건번호별 저장 · GitHub Pages 준비</div>
+    </div>
+
+    <div class="shell">
+      <section class="panel">
+        <div class="panel-title">
+          <span>입력값</span>
+          <span id="updatedAt"></span>
+        </div>
+
+        <form class="form" id="form">
+          <fieldset>
+            <legend>사건 저장</legend>
+            <div class="grid one">
+              <label>저장된 사건
+                <select id="savedCases"></select>
+              </label>
+              <div class="storage-actions">
+                <button type="button" id="saveCase">저장</button>
+                <button type="button" id="loadCase">불러오기</button>
+                <button type="button" id="deleteCase" class="danger">삭제</button>
+              </div>
+              <div class="storage-status" id="storageStatus"></div>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>사건 정보</legend>
+            <div class="grid one">
+              <label>사건번호
+                <input id="caseNo" value="2025타경 63594">
+              </label>
+              <label>소재지
+                <input id="address" value="경기도 고양시 일산동구 중산동 중산마을아파트">
+              </label>
+            </div>
+            <div class="grid">
+              <label>매각기일
+                <input id="saleDate" value="2026년 5월 7일">
+              </label>
+              <label>보증금
+                <input id="deposit" class="money" inputmode="numeric" value="23,030,000" data-money="true">
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>가격</legend>
+            <div class="grid">
+              <label>감정가
+                <input id="appraisal" class="money" inputmode="numeric" value="167,000,000" data-money="true">
+              </label>
+              <label>최저가
+                <input id="minimum" class="money" inputmode="numeric" value="230,300,000" data-money="true">
+              </label>
+              <label>희망 매도가
+                <input id="targetSale" class="money" inputmode="numeric" value="150,000,000" data-money="true">
+              </label>
+              <label>기준 낙찰가율
+                <span class="percent-field"><input id="bidRate" type="number" value="88" step="0.1"></span>
+              </label>
+              <label>시나리오 간격
+                <span class="percent-field"><input id="rateStep" type="number" value="1" step="0.1"></span>
+              </label>
+              <label>시나리오 개수
+                <input id="scenarioCount" type="number" value="5" min="3" max="9" step="2">
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>대출</legend>
+            <div class="grid">
+              <label>대출비율
+                <span class="percent-field"><input id="loanRate" type="number" value="70" step="0.1"></span>
+              </label>
+              <label>연이자
+                <span class="percent-field"><input id="interestRate" type="number" value="5" step="0.1"></span>
+              </label>
+              <label>보유기간 개월
+                <input id="holdMonths" type="number" value="6" step="1">
+              </label>
+              <label>기타 부담률
+                <span class="percent-field"><input id="extraLoanRate" type="number" value="0" step="0.1"></span>
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>비용</legend>
+            <div class="grid">
+              <label>
+                <span class="label-row">취득세
+                  <button class="help-button" type="button" data-help="acquisition" aria-label="취득세 참고 설명">?</button>
+                </span>
+                <div class="money-rate">
+                  <input id="acquisitionTaxAmount" class="money" inputmode="numeric" value="1,616,560" data-money="true">
+                  <span class="percent-field"><input id="acquisitionTaxRate" type="number" value="1.1" step="0.01" aria-label="취득세율"></span>
+                </div>
+                <span class="input-hint">입찰가 기준</span>
+              </label>
+
+              <label>
+                <span class="label-row">법무비
+                  <button class="help-button" type="button" data-help="legal" aria-label="법무비 참고 설명">?</button>
+                </span>
+                <div class="money-rate">
+                  <input id="legalFee" class="money" inputmode="numeric" value="1,000,000" data-money="true">
+                  <span class="percent-field"><input id="legalFeeRate" type="number" value="0.68" step="0.01" aria-label="법무비율"></span>
+                </div>
+                <span class="input-hint">입찰가 기준</span>
+              </label>
+
+              <label>보유관리비
+                <input id="holdingFee" class="money" inputmode="numeric" value="150,000" data-money="true">
+              </label>
+              <label>명도비
+                <input id="evictionFee" class="money" inputmode="numeric" value="2,000,000" data-money="true">
+              </label>
+              <label>수리비용
+                <input id="repairFee" class="money" inputmode="numeric" value="11,000,000" data-money="true">
+              </label>
+              <label>기타비용
+                <input id="otherFee" class="money" inputmode="numeric" value="0" data-money="true">
+              </label>
+
+              <label>
+                <span class="label-row">양도세
+                  <button class="help-button" type="button" data-help="capitalGains" aria-label="양도세 참고 설명">?</button>
+                </span>
+                <div class="money-rate">
+                  <input id="capitalGainsTax" class="money" inputmode="numeric" value="0" data-money="true">
+                  <span class="percent-field"><input id="capitalGainsTaxRate" type="number" value="0" step="0.01" aria-label="양도세율"></span>
+                </div>
+                <span class="input-hint">희망 매도가 기준</span>
+              </label>
+
+              <label>
+                <span class="label-row">중개수수료
+                  <button class="help-button" type="button" data-help="broker" aria-label="중개수수료 참고 설명">?</button>
+                </span>
+                <div class="money-rate">
+                  <input id="brokerFee" class="money" inputmode="numeric" value="660,000" data-money="true">
+                  <span class="percent-field"><input id="brokerRate" type="number" value="0.44" step="0.01" aria-label="중개수수료율"></span>
+                </div>
+                <span class="input-hint">희망 매도가 기준</span>
+              </label>
+            </div>
+          </fieldset>
+
+          <div class="actions">
+            <button type="button" id="reset">초기값</button>
+            <button class="primary" type="submit">계산</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="workbook">
+        <div class="panel">
+          <div class="panel-title">사건 요약</div>
+          <div class="case-box">
+            <div class="label-cell">사건번호</div>
+            <div class="value-cell" id="outCaseNo"></div>
+            <div class="label-cell">감정가</div>
+            <div class="value-cell" id="outAppraisal"></div>
+            <div class="label-cell">소재지</div>
+            <div class="value-cell" id="outAddress"></div>
+            <div class="label-cell">최저가</div>
+            <div class="value-cell" id="outMinimum"></div>
+            <div class="label-cell">매각기일</div>
+            <div class="value-cell" id="outSaleDate"></div>
+            <div class="label-cell">보증금</div>
+            <div class="value-cell" id="outDeposit"></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">기준 입찰가</div>
+          <div class="highlight">
+            <div class="label-cell">희망 매도가</div>
+            <div class="big" id="outTargetSale"></div>
+            <div class="label-cell">기준 낙찰가율</div>
+            <div class="rate" id="outBidRate"></div>
+            <div class="label-cell">기준 입찰가</div>
+            <div class="big" id="outBaseBid"></div>
+            <div class="label-cell">변동 단위</div>
+            <div class="rate" id="outRateStep"></div>
+          </div>
+        </div>
+
+        <div class="summary-grid" id="summary"></div>
+
+        <div class="panel">
+          <div class="panel-title">입찰가 시나리오</div>
+          <div class="table-wrap">
+            <table>
+              <thead id="scenarioHead"></thead>
+              <tbody id="scenarioBody"></tbody>
+            </table>
+          </div>
+          <p class="note">세금과 대출 가능액은 실제 조건에 따라 달라질 수 있습니다. 이 계산기는 입찰 전 빠른 비교용 초안입니다.</p>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <div class="modal-backdrop" id="helpModal" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+    <div class="modal">
+      <div class="modal-head">
+        <strong id="helpTitle"></strong>
+        <button class="modal-close" type="button" id="helpClose" aria-label="설명 닫기">×</button>
+      </div>
+      <div class="modal-body" id="helpBody"></div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "auctionBidCalculatorCases";
+    const defaults = {
+      caseNo: "2025타경 63594",
+      address: "경기도 고양시 일산동구 중산동 중산마을아파트",
+      saleDate: "2026년 5월 7일",
+      appraisal: 167000000,
+      minimum: 230300000,
+      deposit: 23030000,
+      targetSale: 150000000,
+      bidRate: 88,
+      rateStep: 1,
+      scenarioCount: 5,
+      loanRate: 70,
+      interestRate: 5,
+      holdMonths: 6,
+      extraLoanRate: 0,
+      acquisitionTaxRate: 1.1,
+      acquisitionTaxAmount: 1616560,
+      legalFee: 1000000,
+      legalFeeRate: 0.68,
+      holdingFee: 150000,
+      evictionFee: 2000000,
+      repairFee: 11000000,
+      otherFee: 0,
+      capitalGainsTax: 0,
+      capitalGainsTaxRate: 0,
+      brokerRate: 0.44,
+      brokerFee: 660000
+    };
+
+    const ids = Object.keys(defaults);
+    const moneyIds = ["appraisal", "minimum", "deposit", "targetSale", "acquisitionTaxAmount", "legalFee", "holdingFee", "evictionFee", "repairFee", "otherFee", "capitalGainsTax", "brokerFee"];
+    const percentCostPairs = {
+      acquisitionTax: { amountId: "acquisitionTaxAmount", rateId: "acquisitionTaxRate", base: "bid" },
+      legalFee: { amountId: "legalFee", rateId: "legalFeeRate", base: "bid" },
+      capitalGainsTax: { amountId: "capitalGainsTax", rateId: "capitalGainsTaxRate", base: "targetSale" },
+      brokerFee: { amountId: "brokerFee", rateId: "brokerRate", base: "targetSale" }
+    };
+    const percentCostModes = {
+      acquisitionTax: "rate",
+      legalFee: "amount",
+      capitalGainsTax: "amount",
+      brokerFee: "rate"
+    };
+    const won = new Intl.NumberFormat("ko-KR");
+
+    const helpContent = {
+      acquisition: {
+        title: "취득세 참고",
+        body: `
+          <h3>비조정대상지역 주택 취득세율</h3>
+          <ul>
+            <li>1주택: 1%~3%</li>
+            <li>2주택: 1%~3%</li>
+            <li>3주택: 8%</li>
+            <li>4주택 이상 또는 법인: 12%</li>
+          </ul>
+          <h3>1%~3% 기본세율 구간</h3>
+          <ul>
+            <li>6억원 이하: 1%</li>
+            <li>6억원 초과 9억원 이하: 1%~3% 산식 적용</li>
+            <li>9억원 초과: 3%</li>
+          </ul>
+          <p>지방교육세, 농어촌특별세, 전용면적, 일시적 2주택, 공시가격이 낮은 지방주택 등 예외에 따라 실제 세율은 달라질 수 있습니다.</p>
+          <p>출처: <a href="https://www.law.go.kr/lsLawLinkInfo.do?chrClsCd=010202&lsJoLnkSeq=1000225659" target="_blank" rel="noreferrer">국가법령정보센터 지방세법 제11조</a></p>
+        `
+      },
+      legal: {
+        title: "법무비 참고",
+        body: `
+          <h3>구성</h3>
+          <p>법무비는 소유권이전등기 보수, 등기 신청 관련 실비, 제증명, 교통비, 세금 신고·납부 대행료 등이 섞여 견적됩니다. 취득세나 국민주택채권 비용은 별도로 보는 경우가 많습니다.</p>
+          <h3>대략적인 실무 입력값</h3>
+          <p>경매 초안 계산에서는 낙찰가의 약 0.3%~0.8% 또는 최소 70만~150만원 수준을 참고값으로 잡고, 실제 입찰 전에는 법무사 견적을 받아 보정하는 방식이 안전합니다.</p>
+          <p>출처: <a href="https://m.kabl.kr/pageview.kabl?from=index.kabl&menu=data&mid=kjaa_page_0202_2_m" target="_blank" rel="noreferrer">대한법무사협회 법무사보수표</a></p>
+        `
+      },
+      broker: {
+        title: "중개수수료 참고",
+        body: `
+          <h3>주택 매매·교환 상한요율</h3>
+          <ul>
+            <li>5천만원 미만: 0.6%, 한도 25만원</li>
+            <li>5천만원 이상 2억원 미만: 0.5%, 한도 80만원</li>
+            <li>2억원 이상 9억원 미만: 0.4%</li>
+            <li>9억원 이상 12억원 미만: 0.5%</li>
+            <li>12억원 이상 15억원 미만: 0.6%</li>
+            <li>15억원 이상: 0.7%</li>
+          </ul>
+          <p>계산기는 매도 시 중개수수료를 희망 매도가 기준의 % 또는 금액으로 반영합니다. 기본값 0.44%는 부가세를 포함한 보수적 입력 예시입니다.</p>
+          <p>출처: <a href="https://irts.molit.go.kr/com/cmn/popup/fee/rtecsFeeRtoPopup.do" target="_blank" rel="noreferrer">국토교통부 중개보수 요율표</a></p>
+        `
+      },
+      capitalGains: {
+        title: "양도세 참고",
+        body: `
+          <h3>매매사업자 기준으로 볼 때</h3>
+          <p>부동산매매업자는 토지·건물 매매차익 예정신고와 종합소득세 신고를 함께 검토해야 합니다. 실무에서는 매매차익 예정신고 세액과 종합소득세 사업소득 과세가 모두 쟁점이 됩니다.</p>
+          <h3>종합소득세 기본세율 참고표</h3>
+          <ul>
+            <li>1,400만원 이하: 6%</li>
+            <li>1,400만원 초과~5,000만원 이하: 15%, 누진공제 126만원</li>
+            <li>5,000만원 초과~8,800만원 이하: 24%, 누진공제 576만원</li>
+            <li>8,800만원 초과~1억5천만원 이하: 35%, 누진공제 1,544만원</li>
+            <li>1억5천만원 초과~3억원 이하: 38%, 누진공제 1,994만원</li>
+            <li>3억원 초과~5억원 이하: 40%, 누진공제 2,594만원</li>
+            <li>5억원 초과~10억원 이하: 42%, 누진공제 3,594만원</li>
+            <li>10억원 초과: 45%, 누진공제 6,594만원</li>
+          </ul>
+          <p>양도세는 희망 매도가 기준의 % 또는 금액으로 직접 입력합니다. 실제 세액은 다른 종합소득, 필요경비, 단기보유, 비교과세 여부에 따라 달라질 수 있습니다.</p>
+          <p>참고: <a href="https://www.nts.go.kr/nts/cm/cntnts/cntntsView.do?cntntsId=7667&mi=2227" target="_blank" rel="noreferrer">국세청 종합소득세 세율</a>, <a href="https://www.law.go.kr/LSW//lsLawLinkInfo.do?chrClsCd=010202&lsId=001565&lsJoLnkSeq=1000662023&print=print" target="_blank" rel="noreferrer">소득세법 토지 등 매매차익 예정신고</a></p>
+        `
+      }
+    };
+
+    function parseMoney(value) {
+      return Number(String(value || "").replace(/[^\d.-]/g, "")) || 0;
+    }
+
+    function formatWon(value) {
+      return won.format(Math.round(value));
+    }
+
+    function formatMoneyInput(input) {
+      input.value = formatWon(parseMoney(input.value));
+    }
+
+    function numberValue(id) {
+      const element = document.getElementById(id);
+      return element.dataset.money === "true" ? parseMoney(element.value) : Number(element.value || 0);
+    }
+
+    function textValue(id) {
+      return document.getElementById(id).value.trim();
+    }
+
+    function formatRate(value) {
+      return `${Number(value).toFixed(2).replace(/\.00$/, "")}%`;
+    }
+
+    function signedClass(value) {
+      if (value > 0) return "value-positive";
+      if (value < 0) return "value-negative";
+      return "";
+    }
+
+    function currentBaseForPair(pair) {
+      const appraisal = numberValue("appraisal");
+      const bidRate = numberValue("bidRate");
+      return pair.base === "bid" ? appraisal * bidRate / 100 : numberValue("targetSale");
+    }
+
+    function syncPairFromRate(key) {
+      const pair = percentCostPairs[key];
+      const amount = currentBaseForPair(pair) * numberValue(pair.rateId) / 100;
+      document.getElementById(pair.amountId).value = formatWon(amount);
+    }
+
+    function syncPairFromAmount(key) {
+      const pair = percentCostPairs[key];
+      const base = currentBaseForPair(pair);
+      const rate = base > 0 ? numberValue(pair.amountId) / base * 100 : 0;
+      document.getElementById(pair.rateId).value = rate.toFixed(2).replace(/\.?0+$/, "");
+    }
+
+    function syncPercentCosts(changedId) {
+      Object.entries(percentCostPairs).forEach(([key, pair]) => {
+        if (changedId === pair.rateId) {
+          percentCostModes[key] = "rate";
+          syncPairFromRate(key);
+          return;
+        }
+        if (changedId === pair.amountId) {
+          percentCostModes[key] = "amount";
+          syncPairFromAmount(key);
+          return;
+        }
+        if (changedId === "appraisal" || changedId === "bidRate" || changedId === "targetSale") {
+          if (percentCostModes[key] === "rate") syncPairFromRate(key);
+          if (percentCostModes[key] === "amount") syncPairFromAmount(key);
+        }
+      });
+    }
+
+    function scenarioRates(base, step, count) {
+      const safeCount = Math.max(3, Math.min(9, Math.floor(count)));
+      const oddCount = safeCount % 2 === 0 ? safeCount + 1 : safeCount;
+      const middle = Math.floor(oddCount / 2);
+      return Array.from({ length: oddCount }, (_, index) => base + (index - middle) * step);
+    }
+
+    function calculateForRate(input, rate) {
+      const bid = input.appraisal * rate / 100;
+      const loan = bid * input.loanRate / 100;
+      const acquisitionTax = input.acquisitionTaxMode === "rate" ? bid * input.acquisitionTaxRate / 100 : input.acquisitionTaxAmount;
+      const legalFee = input.legalFeeMode === "rate" ? bid * input.legalFeeRate / 100 : input.legalFee;
+      const interest = loan * input.interestRate / 100 * input.holdMonths / 12;
+      const extraLoanCost = loan * input.extraLoanRate / 100;
+      const holdingTotal = input.holdingFee + input.evictionFee + input.repairFee + input.otherFee + interest + extraLoanCost;
+      const capitalGainsTax = input.capitalGainsTaxMode === "rate" ? input.targetSale * input.capitalGainsTaxRate / 100 : input.capitalGainsTax;
+      const brokerFee = input.brokerFeeMode === "rate" ? input.targetSale * input.brokerRate / 100 : input.brokerFee;
+      const acquisitionTotal = acquisitionTax + legalFee;
+      const sellCost = capitalGainsTax + brokerFee;
+      const grossProfit = input.targetSale - bid;
+      const netProfit = input.targetSale - bid - acquisitionTotal - holdingTotal - sellCost;
+      const ownCash = bid - loan + acquisitionTotal + holdingTotal;
+      const roi = netProfit / Math.max(1, ownCash) * 100;
+      return { rate, bid, loan, ownCash, acquisitionTotal, holdingTotal, sellCost, grossProfit, netProfit, roi };
+    }
+
+    function readInput() {
+      return {
+        caseNo: textValue("caseNo"),
+        address: textValue("address"),
+        saleDate: textValue("saleDate"),
+        appraisal: numberValue("appraisal"),
+        minimum: numberValue("minimum"),
+        deposit: numberValue("deposit"),
+        targetSale: numberValue("targetSale"),
+        bidRate: numberValue("bidRate"),
+        rateStep: numberValue("rateStep"),
+        scenarioCount: numberValue("scenarioCount"),
+        loanRate: numberValue("loanRate"),
+        interestRate: numberValue("interestRate"),
+        holdMonths: numberValue("holdMonths"),
+        extraLoanRate: numberValue("extraLoanRate"),
+        acquisitionTaxRate: numberValue("acquisitionTaxRate"),
+        acquisitionTaxAmount: numberValue("acquisitionTaxAmount"),
+        acquisitionTaxMode: percentCostModes.acquisitionTax,
+        legalFee: numberValue("legalFee"),
+        legalFeeRate: numberValue("legalFeeRate"),
+        legalFeeMode: percentCostModes.legalFee,
+        holdingFee: numberValue("holdingFee"),
+        evictionFee: numberValue("evictionFee"),
+        repairFee: numberValue("repairFee"),
+        otherFee: numberValue("otherFee"),
+        capitalGainsTax: numberValue("capitalGainsTax"),
+        capitalGainsTaxRate: numberValue("capitalGainsTaxRate"),
+        capitalGainsTaxMode: percentCostModes.capitalGainsTax,
+        brokerRate: numberValue("brokerRate"),
+        brokerFee: numberValue("brokerFee"),
+        brokerFeeMode: percentCostModes.brokerFee
+      };
+    }
+
+    function applyInput(data) {
+      ids.forEach((id) => {
+        const input = document.getElementById(id);
+        const value = data[id] ?? defaults[id];
+        input.value = input.dataset.money === "true" ? formatWon(value) : value;
+      });
+      if (data.modes) {
+        Object.assign(percentCostModes, data.modes);
+      }
+      syncPercentCosts("appraisal");
+      render();
+    }
+
+    function setText(id, value) {
+      document.getElementById(id).textContent = value;
+    }
+
+    function renderSummary(rows, baseRow) {
+      const bestPositive = rows.filter((row) => row.netProfit > 0).sort((a, b) => b.rate - a.rate)[0];
+      const maxBid = bestPositive ? bestPositive.bid : 0;
+      const items = [
+        ["기준 예상 순수익", formatWon(baseRow.netProfit), baseRow.netProfit >= 0 ? "good" : "bad"],
+        ["기준 투자 수익률", formatRate(baseRow.roi), baseRow.roi >= 0 ? "good" : "bad"],
+        ["수익 가능 최대 입찰가", maxBid ? formatWon(maxBid) : "수익 구간 없음", maxBid ? "good" : "bad"],
+        ["필요 자기자본", formatWon(baseRow.ownCash), ""]
+      ];
+
+      document.getElementById("summary").innerHTML = items.map(([label, value, tone]) => `
+        <div class="metric ${tone}">
+          <span>${label}</span>
+          <strong title="${value}">${value}</strong>
+        </div>
+      `).join("");
+    }
+
+    function renderTable(rows) {
+      document.getElementById("scenarioHead").innerHTML = `
+        <tr>
+          <th>구분</th>
+          ${rows.map((row) => `<th>${formatRate(row.rate)}</th>`).join("")}
+        </tr>
+      `;
+
+      const hasPositiveProfit = rows.some((row) => row.netProfit > 0);
+      const tableRows = [
+        ["입찰가", "bid"],
+        ["대출", "loan"],
+        ["자기자본", "ownCash"],
+        ["취득비용", "acquisitionTotal"],
+        ["보유비용", "holdingTotal"],
+        ["양도비용", "sellCost"],
+        ["매매차익", "grossProfit"],
+        ["세후 순수익", "netProfit", hasPositiveProfit ? "profit positive" : "profit"],
+        ["수익률", "roi", "best"]
+      ];
+
+      document.getElementById("scenarioBody").innerHTML = tableRows.map(([label, key, className]) => `
+        <tr class="${className || ""}">
+          <td>${label}</td>
+          ${rows.map((row) => {
+            const isRate = key === "roi";
+            const value = isRate ? formatRate(row[key]) : formatWon(row[key]);
+            const tone = key === "netProfit" ? signedClass(row[key]) : "";
+            return `<td class="${tone}" title="${value}">${value}</td>`;
+          }).join("")}
+        </tr>
+      `).join("");
+    }
+
+    function render() {
+      const input = readInput();
+      const rows = scenarioRates(input.bidRate, input.rateStep, input.scenarioCount).map((rate) => calculateForRate(input, rate));
+      const baseRow = calculateForRate(input, input.bidRate);
+
+      setText("outCaseNo", input.caseNo || "-");
+      setText("outAddress", input.address || "-");
+      setText("outSaleDate", input.saleDate || "-");
+      setText("outAppraisal", formatWon(input.appraisal));
+      setText("outMinimum", formatWon(input.minimum));
+      setText("outDeposit", formatWon(input.deposit));
+      setText("outTargetSale", formatWon(input.targetSale));
+      setText("outBidRate", formatRate(input.bidRate));
+      setText("outBaseBid", formatWon(baseRow.bid));
+      setText("outRateStep", formatRate(input.rateStep));
+      setText("updatedAt", "자동 계산");
+
+      renderSummary(rows, baseRow);
+      renderTable(rows);
+    }
+
+    function getSavedCases() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+      } catch {
+        return {};
+      }
+    }
+
+    function setSavedCases(cases) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(cases));
+    }
+
+    function refreshSavedCases(selectedCaseNo = textValue("caseNo")) {
+      const cases = getSavedCases();
+      const select = document.getElementById("savedCases");
+      const keys = Object.keys(cases).sort();
+      select.innerHTML = keys.length
+        ? keys.map((key) => `<option value="${key}">${key}</option>`).join("")
+        : `<option value="">저장된 사건 없음</option>`;
+      if (keys.includes(selectedCaseNo)) select.value = selectedCaseNo;
+    }
+
+    function setStorageStatus(message) {
+      const element = document.getElementById("storageStatus");
+      element.textContent = message;
+      window.clearTimeout(setStorageStatus.timer);
+      setStorageStatus.timer = window.setTimeout(() => {
+        element.textContent = "";
+      }, 2600);
+    }
+
+    function saveCurrentCase() {
+      const input = readInput();
+      const key = input.caseNo.trim();
+      if (!key) {
+        setStorageStatus("사건번호를 입력한 뒤 저장하세요.");
+        return;
+      }
+      const cases = getSavedCases();
+      cases[key] = {
+        ...input,
+        modes: { ...percentCostModes },
+        savedAt: new Date().toISOString()
+      };
+      setSavedCases(cases);
+      refreshSavedCases(key);
+      setStorageStatus(`${key} 저장 완료`);
+    }
+
+    function loadSelectedCase() {
+      const key = document.getElementById("savedCases").value;
+      const data = getSavedCases()[key];
+      if (!data) {
+        setStorageStatus("불러올 사건이 없습니다.");
+        return;
+      }
+      applyInput(data);
+      refreshSavedCases(key);
+      setStorageStatus(`${key} 불러오기 완료`);
+    }
+
+    function deleteSelectedCase() {
+      const key = document.getElementById("savedCases").value;
+      const cases = getSavedCases();
+      if (!key || !cases[key]) {
+        setStorageStatus("삭제할 사건이 없습니다.");
+        return;
+      }
+      delete cases[key];
+      setSavedCases(cases);
+      refreshSavedCases();
+      setStorageStatus(`${key} 삭제 완료`);
+    }
+
+    function openHelp(key) {
+      const content = helpContent[key];
+      if (!content) return;
+      setText("helpTitle", content.title);
+      document.getElementById("helpBody").innerHTML = content.body;
+      document.getElementById("helpModal").classList.add("open");
+    }
+
+    function closeHelp() {
+      document.getElementById("helpModal").classList.remove("open");
+    }
+
+    document.getElementById("form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      render();
+    });
+
+    ids.forEach((id) => {
+      if (moneyIds.includes(id)) return;
+      document.getElementById(id).addEventListener("input", () => {
+        syncPercentCosts(id);
+        render();
+      });
+    });
+
+    moneyIds.forEach((id) => {
+      const input = document.getElementById(id);
+      input.addEventListener("input", () => {
+        const cursorAtEnd = input.selectionStart === input.value.length;
+        formatMoneyInput(input);
+        if (cursorAtEnd) input.setSelectionRange(input.value.length, input.value.length);
+        syncPercentCosts(id);
+        render();
+      });
+      input.addEventListener("blur", () => {
+        formatMoneyInput(input);
+        syncPercentCosts(id);
+        render();
+      });
+    });
+
+    document.querySelectorAll("[data-help]").forEach((button) => {
+      button.addEventListener("click", () => openHelp(button.dataset.help));
+    });
+
+    document.getElementById("helpClose").addEventListener("click", closeHelp);
+    document.getElementById("helpModal").addEventListener("click", (event) => {
+      if (event.target.id === "helpModal") closeHelp();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeHelp();
+    });
+
+    document.getElementById("saveCase").addEventListener("click", saveCurrentCase);
+    document.getElementById("loadCase").addEventListener("click", loadSelectedCase);
+    document.getElementById("deleteCase").addEventListener("click", deleteSelectedCase);
+
+    document.getElementById("reset").addEventListener("click", () => {
+      percentCostModes.acquisitionTax = "rate";
+      percentCostModes.legalFee = "amount";
+      percentCostModes.capitalGainsTax = "amount";
+      percentCostModes.brokerFee = "rate";
+      applyInput(defaults);
+      setStorageStatus("초기값으로 되돌렸습니다.");
+    });
+
+    refreshSavedCases();
+    render();
+  </script>
+</body>
+</html>
