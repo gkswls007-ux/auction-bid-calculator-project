@@ -245,6 +245,69 @@
       font-size: 12px;
     }
 
+    .saved-case-list {
+      display: grid;
+      gap: 8px;
+      max-height: 220px;
+      overflow: auto;
+      padding-right: 3px;
+    }
+
+    .saved-section-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 4px;
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .saved-case-item {
+      width: 100%;
+      height: auto;
+      min-height: 52px;
+      padding: 8px 10px;
+      border: 1px solid #d5dce6;
+      border-radius: 6px;
+      background: #fff;
+      text-align: left;
+      font-weight: 400;
+    }
+
+    .saved-case-item.selected {
+      border-color: var(--blue);
+      background: var(--blue-soft);
+    }
+
+    .saved-case-main {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--text);
+      font-weight: 800;
+      font-size: 13px;
+    }
+
+    .saved-case-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .saved-case-roi.good {
+      color: var(--green);
+      font-weight: 800;
+    }
+
+    .saved-case-roi.bad {
+      color: var(--red);
+      font-weight: 800;
+    }
+
     .workbook {
       display: grid;
       gap: 14px;
@@ -523,9 +586,19 @@
           <fieldset>
             <legend>사건 저장</legend>
             <div class="grid one">
-              <label>저장된 사건
-                <select id="savedCases"></select>
+              <label>저장된 사건 검색
+                <input id="savedCaseSearch" placeholder="사건번호, 소재지 검색">
               </label>
+              <div class="saved-section-title">
+                <span>매각중</span>
+                <span id="activeCaseCount">0건</span>
+              </div>
+              <div class="saved-case-list" id="activeCaseList"></div>
+              <div class="saved-section-title">
+                <span>매각완료</span>
+                <span id="completedCaseCount">0건</span>
+              </div>
+              <div class="saved-case-list" id="completedCaseList"></div>
               <div class="storage-actions">
                 <button type="button" id="saveCase">저장</button>
                 <button type="button" id="loadCase">불러오기</button>
@@ -540,6 +613,12 @@
             <div class="grid one">
               <label>사건번호
                 <input id="caseNo" value="">
+              </label>
+              <label>매각현황
+                <select id="saleStatus">
+                  <option value="매각중">매각중</option>
+                  <option value="매각완료">매각완료</option>
+                </select>
               </label>
               <label>소재지
                 <input id="address" value="">
@@ -729,6 +808,7 @@
     const STORAGE_KEY = "auctionBidCalculatorCases";
     const defaults = {
       caseNo: "",
+      saleStatus: "매각중",
       address: "",
       saleDate: "",
       appraisal: "",
@@ -956,6 +1036,7 @@
     function readInput() {
       return {
         caseNo: textValue("caseNo"),
+        saleStatus: document.getElementById("saleStatus").value,
         address: textValue("address"),
         saleDate: textValue("saleDate"),
         appraisal: numberValue("appraisal"),
@@ -1091,14 +1172,93 @@
       localStorage.setItem(STORAGE_KEY, JSON.stringify(cases));
     }
 
-    function refreshSavedCases(selectedCaseNo = textValue("caseNo")) {
+    let selectedSavedCaseNo = "";
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#39;"
+      }[char]));
+    }
+
+    function saleDateSortValue(value) {
+      const text = String(value || "").trim();
+      if (!text) return Number.MAX_SAFE_INTEGER;
+      const normalized = text
+        .replace(/년|월/g, "-")
+        .replace(/일/g, "")
+        .replace(/\./g, "-")
+        .replace(/\s+/g, "");
+      const time = Date.parse(normalized);
+      return Number.isNaN(time) ? Number.MAX_SAFE_INTEGER : time;
+    }
+
+    function casePreview(caseNo, data) {
+      const modes = data.modes || {};
+      const input = {
+        ...defaults,
+        ...data,
+        acquisitionTaxMode: modes.acquisitionTax || data.acquisitionTaxMode || "rate",
+        legalFeeMode: modes.legalFee || data.legalFeeMode || "amount",
+        capitalGainsTaxMode: modes.capitalGainsTax || data.capitalGainsTaxMode || "amount",
+        brokerFeeMode: modes.brokerFee || data.brokerFeeMode || "rate"
+      };
+      const baseRow = calculateForRate(input, Number(input.bidRate || 0));
+      return {
+        caseNo,
+        saleStatus: data.saleStatus || "매각중",
+        saleDate: data.saleDate || "매각기일 미입력",
+        address: data.address || "",
+        roi: baseRow.roi,
+        sortValue: saleDateSortValue(data.saleDate)
+      };
+    }
+
+    function savedCaseButton(item) {
+      const roiClass = item.roi >= 0 ? "good" : "bad";
+      const selected = item.caseNo === selectedSavedCaseNo ? " selected" : "";
+      return `
+        <button type="button" class="saved-case-item${selected}" data-case-no="${escapeHtml(item.caseNo)}">
+          <span class="saved-case-main">
+            <span>${escapeHtml(item.caseNo)}</span>
+            <span class="saved-case-roi ${roiClass}">${formatRate(item.roi)}</span>
+          </span>
+          <span class="saved-case-meta">
+            <span>${escapeHtml(item.saleDate)}</span>
+            <span title="${escapeHtml(item.address)}">${escapeHtml(item.address || "-")}</span>
+          </span>
+        </button>
+      `;
+    }
+
+    function renderCaseList(elementId, items) {
+      const element = document.getElementById(elementId);
+      element.innerHTML = items.length
+        ? items.map(savedCaseButton).join("")
+        : `<div class="storage-status">저장된 사건 없음</div>`;
+    }
+
+    function refreshSavedCases(selectedCaseNo = selectedSavedCaseNo || textValue("caseNo")) {
       const cases = getSavedCases();
-      const select = document.getElementById("savedCases");
-      const keys = Object.keys(cases).sort();
-      select.innerHTML = keys.length
-        ? keys.map((key) => `<option value="${key}">${key}</option>`).join("")
-        : `<option value="">저장된 사건 없음</option>`;
-      if (keys.includes(selectedCaseNo)) select.value = selectedCaseNo;
+      const query = document.getElementById("savedCaseSearch").value.trim().toLowerCase();
+      selectedSavedCaseNo = selectedCaseNo && cases[selectedCaseNo] ? selectedCaseNo : selectedSavedCaseNo;
+      const items = Object.entries(cases)
+        .map(([caseNo, data]) => casePreview(caseNo, data))
+        .filter((item) => {
+          const haystack = `${item.caseNo} ${item.address} ${item.saleDate}`.toLowerCase();
+          return !query || haystack.includes(query);
+        })
+        .sort((a, b) => a.sortValue - b.sortValue || a.caseNo.localeCompare(b.caseNo));
+      const active = items.filter((item) => item.saleStatus !== "매각완료");
+      const completed = items.filter((item) => item.saleStatus === "매각완료");
+
+      document.getElementById("activeCaseCount").textContent = `${active.length}건`;
+      document.getElementById("completedCaseCount").textContent = `${completed.length}건`;
+      renderCaseList("activeCaseList", active);
+      renderCaseList("completedCaseList", completed);
     }
 
     function setStorageStatus(message) {
@@ -1120,19 +1280,21 @@
       const cases = getSavedCases();
       cases[key] = {
         ...input,
+        saleStatus: input.saleStatus || "매각중",
         modes: { ...percentCostModes },
         savedAt: new Date().toISOString()
       };
       setSavedCases(cases);
+      selectedSavedCaseNo = key;
       refreshSavedCases(key);
       setStorageStatus(`${key} 저장 완료`);
     }
 
     function loadSelectedCase() {
-      const key = document.getElementById("savedCases").value;
+      const key = selectedSavedCaseNo;
       const data = getSavedCases()[key];
       if (!data) {
-        setStorageStatus("불러올 사건이 없습니다.");
+        setStorageStatus("불러올 사건을 선택하세요.");
         return;
       }
       applyInput(data);
@@ -1141,14 +1303,15 @@
     }
 
     function deleteSelectedCase() {
-      const key = document.getElementById("savedCases").value;
+      const key = selectedSavedCaseNo;
       const cases = getSavedCases();
       if (!key || !cases[key]) {
-        setStorageStatus("삭제할 사건이 없습니다.");
+        setStorageStatus("삭제할 사건을 선택하세요.");
         return;
       }
       delete cases[key];
       setSavedCases(cases);
+      selectedSavedCaseNo = "";
       refreshSavedCases();
       setStorageStatus(`${key} 삭제 완료`);
     }
@@ -1209,13 +1372,28 @@
     document.getElementById("saveCase").addEventListener("click", saveCurrentCase);
     document.getElementById("loadCase").addEventListener("click", loadSelectedCase);
     document.getElementById("deleteCase").addEventListener("click", deleteSelectedCase);
+    document.getElementById("savedCaseSearch").addEventListener("input", () => refreshSavedCases());
+    document.getElementById("activeCaseList").addEventListener("click", (event) => {
+      const item = event.target.closest(".saved-case-item");
+      if (!item) return;
+      selectedSavedCaseNo = item.dataset.caseNo;
+      refreshSavedCases(selectedSavedCaseNo);
+    });
+    document.getElementById("completedCaseList").addEventListener("click", (event) => {
+      const item = event.target.closest(".saved-case-item");
+      if (!item) return;
+      selectedSavedCaseNo = item.dataset.caseNo;
+      refreshSavedCases(selectedSavedCaseNo);
+    });
 
     document.getElementById("reset").addEventListener("click", () => {
       percentCostModes.acquisitionTax = "rate";
       percentCostModes.legalFee = "amount";
       percentCostModes.capitalGainsTax = "amount";
       percentCostModes.brokerFee = "rate";
+      selectedSavedCaseNo = "";
       applyInput(defaults, { sync: false });
+      refreshSavedCases();
       setStorageStatus("초기값으로 되돌렸습니다.");
     });
 
