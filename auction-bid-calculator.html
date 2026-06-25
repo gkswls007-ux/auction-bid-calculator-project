@@ -153,10 +153,10 @@
     }
 
     input,
-    select {
+    select,
+    textarea {
       width: 100%;
       min-width: 0;
-      height: 38px;
       padding: 8px 10px;
       border: 1px solid #c9d1dc;
       border-radius: 6px;
@@ -164,6 +164,17 @@
       color: var(--text);
       font: inherit;
       font-size: 14px;
+    }
+
+    input,
+    select {
+      height: 38px;
+    }
+
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+      line-height: 1.55;
     }
 
     input.money {
@@ -500,6 +511,17 @@
       background: #fbfcfe;
     }
 
+    .memo-box {
+      border-top: 1px solid var(--line);
+      padding: 12px;
+      background: #fff;
+    }
+
+    .memo-box label {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
     .modal-backdrop {
       position: fixed;
       inset: 0;
@@ -659,6 +681,12 @@
               <label>보증금
                 <input id="deposit" class="money" inputmode="numeric" value="" data-money="true">
               </label>
+              <label>사용승인일
+                <input id="approvalDate" value="">
+              </label>
+              <label>전용면적
+                <input id="exclusiveArea" value="" placeholder="예: 84.95㎡">
+              </label>
             </div>
           </fieldset>
 
@@ -789,6 +817,10 @@
             <div class="value-cell" id="outSaleDate"></div>
             <div class="label-cell">보증금</div>
             <div class="value-cell" id="outDeposit"></div>
+            <div class="label-cell">사용승인일</div>
+            <div class="value-cell" id="outApprovalDate"></div>
+            <div class="label-cell">전용면적</div>
+            <div class="value-cell" id="outExclusiveArea"></div>
           </div>
         </div>
 
@@ -817,6 +849,11 @@
             </table>
           </div>
           <p class="note">세금과 대출 가능액은 실제 조건에 따라 달라질 수 있습니다. 이 계산기는 입찰 전 빠른 비교용 초안입니다.</p>
+          <div class="memo-box">
+            <label>메모
+              <textarea id="memo" placeholder="권리관계, 임장 내용, 입찰 판단 근거 등을 기록하세요."></textarea>
+            </label>
+          </div>
         </div>
       </section>
     </div>
@@ -839,6 +876,8 @@
       saleStatus: "매각중",
       address: "",
       saleDate: "",
+      approvalDate: "",
+      exclusiveArea: "",
       appraisal: "",
       minimum: "",
       deposit: "",
@@ -861,7 +900,8 @@
       capitalGainsTax: "",
       capitalGainsTaxRate: "",
       brokerRate: "",
-      brokerFee: ""
+      brokerFee: "",
+      memo: ""
     };
 
     const ids = Object.keys(defaults);
@@ -1067,6 +1107,8 @@
         saleStatus: document.getElementById("saleStatus").value,
         address: textValue("address"),
         saleDate: textValue("saleDate"),
+        approvalDate: textValue("approvalDate"),
+        exclusiveArea: textValue("exclusiveArea"),
         appraisal: numberValue("appraisal"),
         minimum: numberValue("minimum"),
         deposit: numberValue("deposit"),
@@ -1093,7 +1135,8 @@
         capitalGainsTaxMode: percentCostModes.capitalGainsTax,
         brokerRate: numberValue("brokerRate"),
         brokerFee: numberValue("brokerFee"),
-        brokerFeeMode: percentCostModes.brokerFee
+        brokerFeeMode: percentCostModes.brokerFee,
+        memo: textValue("memo")
       };
     }
 
@@ -1175,6 +1218,8 @@
       setText("outCaseNo", input.caseNo || "-");
       setText("outAddress", input.address || "-");
       setText("outSaleDate", input.saleDate || "-");
+      setText("outApprovalDate", input.approvalDate || "-");
+      setText("outExclusiveArea", input.exclusiveArea || "-");
       setText("outAppraisal", formatWon(input.appraisal));
       setText("outMinimum", formatWon(input.minimum));
       setText("outDeposit", formatWon(input.deposit));
@@ -1276,7 +1321,8 @@
       const items = Object.entries(cases)
         .map(([caseNo, data]) => casePreview(caseNo, data))
         .filter((item) => {
-          const haystack = `${item.caseNo} ${item.address} ${item.saleDate}`.toLowerCase();
+          const original = cases[item.caseNo] || {};
+          const haystack = `${item.caseNo} ${item.address} ${item.saleDate} ${original.approvalDate || ""} ${original.exclusiveArea || ""} ${original.memo || ""}`.toLowerCase();
           return !query || haystack.includes(query);
         })
         .sort((a, b) => a.sortValue - b.sortValue || a.caseNo.localeCompare(b.caseNo));
