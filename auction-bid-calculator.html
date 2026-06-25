@@ -264,15 +264,17 @@
     }
 
     .saved-case-item {
+      display: block;
       width: 100%;
       height: auto;
-      min-height: 52px;
-      padding: 8px 10px;
+      min-height: 76px;
+      padding: 9px 10px;
       border: 1px solid #d5dce6;
       border-radius: 6px;
       background: #fff;
       text-align: left;
       font-weight: 400;
+      line-height: 1.3;
     }
 
     .saved-case-item.selected {
@@ -283,19 +285,33 @@
     .saved-case-main {
       display: flex;
       justify-content: space-between;
+      align-items: baseline;
       gap: 8px;
       color: var(--text);
       font-weight: 800;
       font-size: 13px;
+      line-height: 1.25;
+    }
+
+    .saved-case-number {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .saved-case-meta {
       display: grid;
-      gap: 3px;
-      margin-top: 4px;
+      gap: 4px;
+      margin-top: 6px;
       color: var(--muted);
       font-size: 12px;
-      line-height: 1.25;
+      line-height: 1.35;
+    }
+
+    .saved-case-date {
+      display: block;
+      white-space: nowrap;
     }
 
     .saved-case-address {
@@ -305,16 +321,19 @@
       overflow: hidden;
       white-space: normal;
       overflow-wrap: anywhere;
+      max-height: 34px;
     }
 
     .saved-case-roi.good {
       color: var(--green);
       font-weight: 800;
+      flex: 0 0 auto;
     }
 
     .saved-case-roi.bad {
       color: var(--red);
       font-weight: 800;
+      flex: 0 0 auto;
     }
 
     .workbook {
@@ -1231,14 +1250,14 @@
       const selected = item.caseNo === selectedSavedCaseNo ? " selected" : "";
       return `
         <button type="button" class="saved-case-item${selected}" data-case-no="${escapeHtml(item.caseNo)}">
-          <span class="saved-case-main">
-            <span>${escapeHtml(item.caseNo)}</span>
+          <div class="saved-case-main">
+            <span class="saved-case-number">${escapeHtml(item.caseNo)}</span>
             <span class="saved-case-roi ${roiClass}">${formatRate(item.roi)}</span>
-          </span>
-          <span class="saved-case-meta">
-            <span>${escapeHtml(item.saleDate)}</span>
+          </div>
+          <div class="saved-case-meta">
+            <span class="saved-case-date">${escapeHtml(item.saleDate)}</span>
             <span class="saved-case-address" title="${escapeHtml(item.address)}">${escapeHtml(item.address || "-")}</span>
-          </span>
+          </div>
         </button>
       `;
     }
