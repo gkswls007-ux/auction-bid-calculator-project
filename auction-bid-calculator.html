@@ -290,12 +290,21 @@
     }
 
     .saved-case-meta {
-      display: flex;
-      justify-content: space-between;
-      gap: 8px;
+      display: grid;
+      gap: 3px;
       margin-top: 4px;
       color: var(--muted);
       font-size: 12px;
+      line-height: 1.25;
+    }
+
+    .saved-case-address {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
 
     .saved-case-roi.good {
@@ -1228,7 +1237,7 @@
           </span>
           <span class="saved-case-meta">
             <span>${escapeHtml(item.saleDate)}</span>
-            <span title="${escapeHtml(item.address)}">${escapeHtml(item.address || "-")}</span>
+            <span class="saved-case-address" title="${escapeHtml(item.address)}">${escapeHtml(item.address || "-")}</span>
           </span>
         </button>
       `;
