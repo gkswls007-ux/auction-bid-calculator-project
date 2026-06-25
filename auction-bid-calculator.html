@@ -522,6 +522,25 @@
       font-size: 12px;
     }
 
+    .capital-panel {
+      border-top: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .subtable-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 13px 16px;
+      font-weight: 800;
+    }
+
+    tr.total td {
+      background: #eef3fa;
+      color: var(--text);
+      font-weight: 800;
+    }
+
     .modal-backdrop {
       position: fixed;
       inset: 0;
@@ -853,6 +872,18 @@
             </table>
           </div>
           <p class="note">세금과 대출 가능액은 실제 조건에 따라 달라질 수 있습니다. 이 계산기는 입찰 전 빠른 비교용 초안입니다.</p>
+          <div class="capital-panel">
+            <div class="subtable-title">
+              <span>필요자기자본</span>
+              <button class="help-button" type="button" data-help="requiredCapital" aria-label="필요자기자본 참고 설명">?</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead id="capitalHead"></thead>
+                <tbody id="capitalBody"></tbody>
+              </table>
+            </div>
+          </div>
           <div class="memo-box">
             <label>메모
               <textarea id="memo" placeholder="권리관계, 임장 내용, 입찰 판단 근거 등을 기록하세요."></textarea>
@@ -934,6 +965,19 @@
           <h3>자동 입력 방식</h3>
           <p>감정가와 기준 낙찰가율을 입력하면 기준 입찰가를 계산한 뒤, 위 기준으로 추정한 대출 가능액을 입찰가 대비 비율로 환산해 대출비율 칸에 자동 입력합니다.</p>
           <p>사용자가 대출비율을 직접 수정하면 직접 입력한 값을 우선합니다. 실제 대출 가능액은 지역, 물건 종류, 소득, DSR, 금융기관 심사에 따라 달라질 수 있습니다.</p>
+        `
+      },
+      requiredCapital: {
+        title: "필요자기자본 참고",
+        body: `
+          <h3>포함하는 금액</h3>
+          <p>필요자기자본은 입찰과 취득·보유 과정에서 먼저 투입될 수 있는 금액을 보기 위한 가견적입니다.</p>
+          <ul>
+            <li>입찰 과정 자기자본: 보증금 + 대출 안 받는 잔금</li>
+            <li>취득·보유 비용: 취득세, 법무비, 보유관리비, 명도비, 수리비용, 기타비용</li>
+          </ul>
+          <h3>제외하는 금액</h3>
+          <p>양도세와 중개수수료는 매도가 이루어진 뒤 정산되는 비용으로 보아, 당장의 필요자기자본에서는 제외했습니다.</p>
         `
       },
       acquisition: {
@@ -1135,9 +1179,32 @@
       const acquisitionTotal = acquisitionTax + legalFee;
       const sellCost = capitalGainsTax + brokerFee;
       const netProfit = input.targetSale - bid - acquisitionTotal - holdingTotal - sellCost;
-      const ownCash = bid - loan + acquisitionTotal + holdingTotal;
+      const bidEquity = Math.max(0, bid - loan);
+      const remainingBidEquity = Math.max(0, bidEquity - input.deposit);
+      const requiredCapital = input.deposit + remainingBidEquity + acquisitionTax + legalFee + input.holdingFee + input.evictionFee + input.repairFee + input.otherFee;
+      const ownCash = requiredCapital;
       const roi = netProfit / Math.max(1, ownCash) * 100;
-      return { rate, bid, loan, ownCash, acquisitionTotal, holdingTotal, sellCost, grossProfit, netProfit, roi };
+      return {
+        rate,
+        bid,
+        loan,
+        ownCash,
+        deposit: input.deposit,
+        remainingBidEquity,
+        acquisitionTax,
+        legalFee,
+        holdingFee: input.holdingFee,
+        evictionFee: input.evictionFee,
+        repairFee: input.repairFee,
+        otherFee: input.otherFee,
+        requiredCapital,
+        acquisitionTotal,
+        holdingTotal,
+        sellCost,
+        grossProfit,
+        netProfit,
+        roi
+      };
     }
 
     function readInput() {
@@ -1251,6 +1318,37 @@
       `).join("");
     }
 
+    function renderCapitalTable(rows) {
+      document.getElementById("capitalHead").innerHTML = `
+        <tr>
+          <th>구분</th>
+          ${rows.map((row) => `<th>${formatRate(row.rate)}</th>`).join("")}
+        </tr>
+      `;
+
+      const capitalRows = [
+        ["보증금", "deposit"],
+        ["대출 안받은 금액", "remainingBidEquity"],
+        ["취득세", "acquisitionTax"],
+        ["법무비", "legalFee"],
+        ["보유관리비", "holdingFee"],
+        ["명도비", "evictionFee"],
+        ["수리비용", "repairFee"],
+        ["기타비용", "otherFee"],
+        ["필요자기자본", "requiredCapital", "total"]
+      ];
+
+      document.getElementById("capitalBody").innerHTML = capitalRows.map(([label, key, className]) => `
+        <tr class="${className || ""}">
+          <td>${label}</td>
+          ${rows.map((row) => {
+            const value = formatWon(row[key]);
+            return `<td title="${value}">${value}</td>`;
+          }).join("")}
+        </tr>
+      `).join("");
+    }
+
     function render() {
       const input = readInput();
       const rows = scenarioRates(input.bidRate, input.rateStep, input.scenarioCount).map((rate) => calculateForRate(input, rate));
@@ -1272,6 +1370,7 @@
 
       renderSummary(rows, baseRow);
       renderTable(rows);
+      renderCapitalTable(rows);
     }
 
     function getSavedCases() {
