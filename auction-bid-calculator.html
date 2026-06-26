@@ -1705,7 +1705,8 @@
       const currentSnapshot = captureInputSnapshot(currentValues);
       if (currentSnapshot === lastInputSnapshot) return;
       const changedIds = ids.filter((inputId) => currentValues[inputId] !== lastInputValues[inputId]);
-      const primaryId = id || changedIds.find((inputId) => ["capitalGainsTaxRate", "capitalGainsTax", "brokerRate", "brokerFee"].includes(inputId)) || changedIds[0] || "";
+      const focusedId = ids.includes(document.activeElement?.id) ? document.activeElement.id : "";
+      const primaryId = id || (changedIds.includes(focusedId) ? focusedId : "") || changedIds.find((inputId) => !["capitalGainsTaxRate", "capitalGainsTax", "brokerRate", "brokerFee"].includes(inputId)) || "";
       updateAfterInput(primaryId);
     }
 
