@@ -801,7 +801,7 @@
                   <input id="capitalGainsTax" class="money" inputmode="numeric" value="" data-money="true">
                   <span class="percent-field"><input id="capitalGainsTaxRate" type="number" value="" step="0.01" aria-label="양도세율"></span>
                 </div>
-                <span class="input-hint">매매차익 - 보유관리비 - 수리비용 - 중개수수료 기준</span>
+                <span class="input-hint">해당 건 예상 과세이익 기준 자동계산</span>
               </label>
 
               <label>
@@ -812,7 +812,7 @@
                   <input id="brokerFee" class="money" inputmode="numeric" value="" data-money="true">
                   <span class="percent-field"><input id="brokerRate" type="number" value="" step="0.01" aria-label="중개수수료율"></span>
                 </div>
-                <span class="input-hint">희망 매도가 기준</span>
+                <span class="input-hint">주택 매매 요율표 기준 자동계산</span>
               </label>
             </div>
           </fieldset>
@@ -950,8 +950,8 @@
     const percentCostModes = {
       acquisitionTax: "rate",
       legalFee: "amount",
-      capitalGainsTax: "amount",
-      brokerFee: "rate"
+      capitalGainsTax: "auto",
+      brokerFee: "auto"
     };
     let loanRateMode = "auto";
     const won = new Intl.NumberFormat("ko-KR");
@@ -1022,7 +1022,7 @@
             <li>12억원 이상 15억원 미만: 0.6%</li>
             <li>15억원 이상: 0.7%</li>
           </ul>
-          <p>계산기는 매도 시 중개수수료를 희망 매도가 기준의 % 또는 금액으로 반영합니다. 기본값 0.44%는 부가세를 포함한 보수적 입력 예시입니다.</p>
+          <p>희망 매도가를 입력하면 위 주택 매매 요율표 기준으로 중개수수료를 자동 계산합니다. 이후 사용자가 금액이나 요율을 직접 수정하면 직접 입력값을 우선합니다.</p>
           <p>출처: <a href="https://irts.molit.go.kr/com/cmn/popup/fee/rtecsFeeRtoPopup.do" target="_blank" rel="noreferrer">국토교통부 중개보수 요율표</a></p>
         `
       },
@@ -1042,7 +1042,8 @@
             <li>5억원 초과~10억원 이하: 42%, 누진공제 3,594만원</li>
             <li>10억원 초과: 45%, 누진공제 6,594만원</li>
           </ul>
-          <p>양도세는 가견적용으로 예상 매매차익에서 주요 경비를 뺀 금액 기준의 % 또는 금액으로 입력합니다. 이 계산기에서는 희망 매도가에서 입찰가, 보유관리비, 수리비용, 중개수수료를 뺀 값을 기준으로 세율을 적용합니다. 실제 세액은 다른 종합소득, 필요경비, 단기보유, 비교과세 여부에 따라 달라질 수 있습니다.</p>
+          <p>계산기는 가견적용으로 해당 물건의 예상 과세이익에 위 종합소득세 기본세율과 누진공제를 적용합니다. 예상 과세이익은 희망 매도가에서 입찰가, 보유관리비, 수리비용, 중개수수료를 뺀 금액입니다.</p>
+          <p>이번 버전은 해당 건만 따로 계산하며, 같은 해 다른 매매차익 누적분, 다른 종합소득, 지방소득세, 필요경비 인정 여부, 단기보유·비교과세 등은 반영하지 않습니다. 사용자가 금액이나 세율을 직접 수정하면 직접 입력값을 우선합니다.</p>
           <p>참고: <a href="https://www.nts.go.kr/nts/cm/cntnts/cntntsView.do?cntntsId=7667&mi=2227" target="_blank" rel="noreferrer">국세청 종합소득세 세율</a>, <a href="https://www.law.go.kr/LSW//lsLawLinkInfo.do?chrClsCd=010202&lsId=001565&lsJoLnkSeq=1000662023&print=print" target="_blank" rel="noreferrer">소득세법 토지 등 매매차익 예정신고</a></p>
         `
       }
@@ -1107,15 +1108,59 @@
       return "";
     }
 
+    function residentialBrokerFee(price) {
+      if (!price) return { fee: 0, rate: 0 };
+      if (price < 50000000) return { fee: Math.min(price * 0.006, 250000), rate: 0.6 };
+      if (price < 200000000) return { fee: Math.min(price * 0.005, 800000), rate: 0.5 };
+      if (price < 900000000) return { fee: price * 0.004, rate: 0.4 };
+      if (price < 1200000000) return { fee: price * 0.005, rate: 0.5 };
+      if (price < 1500000000) return { fee: price * 0.006, rate: 0.6 };
+      return { fee: price * 0.007, rate: 0.7 };
+    }
+
+    function incomeTaxByBracket(taxableProfit) {
+      const amount = Math.max(0, taxableProfit);
+      const brackets = [
+        { limit: 14000000, rate: 0.06, deduction: 0 },
+        { limit: 50000000, rate: 0.15, deduction: 1260000 },
+        { limit: 88000000, rate: 0.24, deduction: 5760000 },
+        { limit: 150000000, rate: 0.35, deduction: 15440000 },
+        { limit: 300000000, rate: 0.38, deduction: 19940000 },
+        { limit: 500000000, rate: 0.4, deduction: 25940000 },
+        { limit: 1000000000, rate: 0.42, deduction: 35940000 },
+        { limit: Infinity, rate: 0.45, deduction: 65940000 }
+      ];
+      const bracket = brackets.find((item) => amount <= item.limit);
+      return {
+        tax: Math.max(0, amount * bracket.rate - bracket.deduction),
+        rate: bracket.rate * 100
+      };
+    }
+
+    function brokerageFeeFromInput(input) {
+      if (input.brokerFeeMode === "auto") return residentialBrokerFee(input.targetSale).fee;
+      if (input.brokerFeeMode === "rate") return input.targetSale * input.brokerRate / 100;
+      return input.brokerFee;
+    }
+
+    function capitalGainsTaxFromInput(input, taxableProfit) {
+      if (input.capitalGainsTaxMode === "auto") return incomeTaxByBracket(taxableProfit).tax;
+      if (input.capitalGainsTaxMode === "rate") return taxableProfit * input.capitalGainsTaxRate / 100;
+      return input.capitalGainsTax;
+    }
+
     function currentBaseForPair(pair) {
       const appraisal = numberValue("appraisal");
       const bidRate = numberValue("bidRate");
       const bid = appraisal * bidRate / 100;
       if (pair.base === "bid") return bid;
       if (pair.base === "grossProfit") {
-        const brokerFee = percentCostModes.brokerFee === "rate"
-          ? numberValue("targetSale") * numberValue("brokerRate") / 100
-          : numberValue("brokerFee");
+        const brokerFee = brokerFeeFromInput({
+          targetSale: numberValue("targetSale"),
+          brokerRate: numberValue("brokerRate"),
+          brokerFee: numberValue("brokerFee"),
+          brokerFeeMode: percentCostModes.brokerFee
+        });
         return Math.max(0, numberValue("targetSale") - bid - numberValue("holdingFee") - numberValue("repairFee") - brokerFee);
       }
       return numberValue("targetSale");
@@ -1134,12 +1179,30 @@
       document.getElementById(pair.rateId).value = rate.toFixed(2).replace(/\.?0+$/, "");
     }
 
+    function syncPairFromAuto(key) {
+      const pair = percentCostPairs[key];
+      if (key === "brokerFee") {
+        const targetSale = numberValue("targetSale");
+        const result = residentialBrokerFee(targetSale);
+        document.getElementById(pair.amountId).value = targetSale ? formatWon(result.fee) : "";
+        document.getElementById(pair.rateId).value = targetSale ? formatInputRate(result.rate) : "";
+        return;
+      }
+      if (key === "capitalGainsTax") {
+        const taxableProfit = currentBaseForPair(pair);
+        const result = incomeTaxByBracket(taxableProfit);
+        document.getElementById(pair.amountId).value = taxableProfit ? formatWon(result.tax) : "";
+        document.getElementById(pair.rateId).value = taxableProfit ? formatInputRate(result.rate) : "";
+      }
+    }
+
     function syncPercentCosts(changedId) {
       Object.entries(percentCostPairs).forEach(([key, pair]) => {
         if (changedId === pair.rateId) percentCostModes[key] = "rate";
         if (changedId === pair.amountId) percentCostModes[key] = "amount";
       });
 
+      const baseChanged = ["appraisal", "bidRate", "targetSale", "holdingFee", "repairFee", "brokerFee", "brokerRate"].includes(changedId);
       Object.entries(percentCostPairs).forEach(([key, pair]) => {
         if (changedId === pair.rateId) {
           syncPairFromRate(key);
@@ -1149,12 +1212,13 @@
           syncPairFromAmount(key);
           return;
         }
-        const baseChanged = ["appraisal", "bidRate", "targetSale", "holdingFee", "repairFee", "brokerFee", "brokerRate"].includes(changedId);
         if (baseChanged) {
           if (percentCostModes[key] === "rate") syncPairFromRate(key);
           if (percentCostModes[key] === "amount") syncPairFromAmount(key);
+          if (percentCostModes[key] === "auto") syncPairFromAuto(key);
         }
       });
+      if (baseChanged && percentCostModes.capitalGainsTax === "auto") syncPairFromAuto("capitalGainsTax");
     }
 
     function scenarioRates(base, step, count) {
@@ -1172,9 +1236,9 @@
       const interest = loan * input.interestRate / 100 * input.holdMonths / 12;
       const extraLoanCost = loan * input.extraLoanRate / 100;
       const grossProfit = input.targetSale - bid;
-      const brokerFee = input.brokerFeeMode === "rate" ? input.targetSale * input.brokerRate / 100 : input.brokerFee;
+      const brokerFee = brokerageFeeFromInput(input);
       const taxableProfit = Math.max(0, grossProfit - input.holdingFee - input.repairFee - brokerFee);
-      const capitalGainsTax = input.capitalGainsTaxMode === "rate" ? taxableProfit * input.capitalGainsTaxRate / 100 : input.capitalGainsTax;
+      const capitalGainsTax = capitalGainsTaxFromInput(input, taxableProfit);
       const holdingTotal = input.holdingFee + input.evictionFee + input.repairFee + input.otherFee + interest + extraLoanCost;
       const acquisitionTotal = acquisitionTax + legalFee;
       const sellCost = capitalGainsTax + brokerFee;
@@ -1416,8 +1480,8 @@
         ...data,
         acquisitionTaxMode: modes.acquisitionTax || data.acquisitionTaxMode || "rate",
         legalFeeMode: modes.legalFee || data.legalFeeMode || "amount",
-        capitalGainsTaxMode: modes.capitalGainsTax || data.capitalGainsTaxMode || "amount",
-        brokerFeeMode: modes.brokerFee || data.brokerFeeMode || "rate"
+        capitalGainsTaxMode: modes.capitalGainsTax || data.capitalGainsTaxMode || "auto",
+        brokerFeeMode: modes.brokerFee || data.brokerFeeMode || "auto"
       };
       const baseRow = calculateForRate(input, Number(input.bidRate || 0));
       return {
@@ -1607,8 +1671,8 @@
     document.getElementById("reset").addEventListener("click", () => {
       percentCostModes.acquisitionTax = "rate";
       percentCostModes.legalFee = "amount";
-      percentCostModes.capitalGainsTax = "amount";
-      percentCostModes.brokerFee = "rate";
+      percentCostModes.capitalGainsTax = "auto";
+      percentCostModes.brokerFee = "auto";
       loanRateMode = "auto";
       selectedSavedCaseNo = "";
       applyInput(defaults, { sync: false });
