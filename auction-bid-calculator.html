@@ -956,6 +956,10 @@
       capitalGainsTax: "auto",
       brokerFee: "auto"
     };
+    const manualCostModes = {
+      capitalGainsTax: false,
+      brokerFee: false
+    };
     let loanRateMode = "auto";
     const won = new Intl.NumberFormat("ko-KR");
 
@@ -1234,8 +1238,14 @@
 
     function syncPercentCosts(changedId) {
       Object.entries(percentCostPairs).forEach(([key, pair]) => {
-        if (changedId === pair.rateId) percentCostModes[key] = "rate";
-        if (changedId === pair.amountId) percentCostModes[key] = "amount";
+        if (changedId === pair.rateId) {
+          percentCostModes[key] = "rate";
+          if (key in manualCostModes) manualCostModes[key] = true;
+        }
+        if (changedId === pair.amountId) {
+          percentCostModes[key] = "amount";
+          if (key in manualCostModes) manualCostModes[key] = true;
+        }
       });
 
       const baseChanged = ["appraisal", "bidRate", "targetSale", "loanRate", "interestRate", "holdMonths", "extraLoanRate", "acquisitionTaxAmount", "acquisitionTaxRate", "legalFee", "legalFeeRate", "holdingFee", "evictionFee", "repairFee", "otherFee", "brokerFee", "brokerRate"].includes(changedId);
@@ -1376,10 +1386,13 @@
         input.value = value === "" ? "" : input.dataset.money === "true" ? formatWon(value) : value;
       });
       const modes = data.modes || {};
+      const manualModes = data.manualCostModes || {};
       percentCostModes.acquisitionTax = modes.acquisitionTax || data.acquisitionTaxMode || "rate";
       percentCostModes.legalFee = modes.legalFee || data.legalFeeMode || "amount";
-      percentCostModes.capitalGainsTax = modes.capitalGainsTax || data.capitalGainsTaxMode || "auto";
-      percentCostModes.brokerFee = modes.brokerFee || data.brokerFeeMode || "auto";
+      manualCostModes.capitalGainsTax = manualModes.capitalGainsTax === true;
+      manualCostModes.brokerFee = manualModes.brokerFee === true;
+      percentCostModes.capitalGainsTax = manualCostModes.capitalGainsTax ? modes.capitalGainsTax || data.capitalGainsTaxMode || "rate" : "auto";
+      percentCostModes.brokerFee = manualCostModes.brokerFee ? modes.brokerFee || data.brokerFeeMode || "rate" : "auto";
       loanRateMode = data.loanRateMode || (data.loanRate === "" ? "auto" : "manual");
       if (shouldSync) {
         try {
@@ -1540,13 +1553,14 @@
 
     function casePreview(caseNo, data) {
       const modes = data.modes || {};
+      const manualModes = data.manualCostModes || {};
       const input = {
         ...defaults,
         ...data,
         acquisitionTaxMode: modes.acquisitionTax || data.acquisitionTaxMode || "rate",
         legalFeeMode: modes.legalFee || data.legalFeeMode || "amount",
-        capitalGainsTaxMode: modes.capitalGainsTax || data.capitalGainsTaxMode || "auto",
-        brokerFeeMode: modes.brokerFee || data.brokerFeeMode || "auto"
+        capitalGainsTaxMode: manualModes.capitalGainsTax === true ? modes.capitalGainsTax || data.capitalGainsTaxMode || "rate" : "auto",
+        brokerFeeMode: manualModes.brokerFee === true ? modes.brokerFee || data.brokerFeeMode || "rate" : "auto"
       };
       const baseRow = calculateForRate(input, Number(input.bidRate || 0));
       return {
@@ -1625,6 +1639,7 @@
         ...input,
         saleStatus: input.saleStatus || "매각중",
         modes: { ...percentCostModes },
+        manualCostModes: { ...manualCostModes },
         loanRateMode,
         savedAt: new Date().toISOString()
       };
@@ -1776,6 +1791,8 @@
       percentCostModes.legalFee = "amount";
       percentCostModes.capitalGainsTax = "auto";
       percentCostModes.brokerFee = "auto";
+      manualCostModes.capitalGainsTax = false;
+      manualCostModes.brokerFee = false;
       loanRateMode = "auto";
       selectedSavedCaseNo = "";
       applyInput(defaults, { sync: false });
