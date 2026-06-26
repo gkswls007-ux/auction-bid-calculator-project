@@ -1232,7 +1232,6 @@
       });
       if (percentCostModes.capitalGainsTax === "auto") syncPairFromAuto("capitalGainsTax");
       syncLoanRate("appraisal");
-      render();
     }
 
     function scenarioRates(base, step, count) {
@@ -1331,12 +1330,20 @@
         const value = data[id] ?? defaults[id];
         input.value = value === "" ? "" : input.dataset.money === "true" ? formatWon(value) : value;
       });
-      if (data.modes) {
-        Object.assign(percentCostModes, data.modes);
-      }
+      const modes = data.modes || {};
+      percentCostModes.acquisitionTax = modes.acquisitionTax || data.acquisitionTaxMode || "rate";
+      percentCostModes.legalFee = modes.legalFee || data.legalFeeMode || "amount";
+      percentCostModes.capitalGainsTax = modes.capitalGainsTax || data.capitalGainsTaxMode || "auto";
+      percentCostModes.brokerFee = modes.brokerFee || data.brokerFeeMode || "auto";
       loanRateMode = data.loanRateMode || (data.loanRate === "" ? "auto" : "manual");
-      if (shouldSync) syncCalculatedFields();
-      else render();
+      if (shouldSync) {
+        try {
+          syncCalculatedFields();
+        } catch (error) {
+          console.warn("저장 사건 자동계산 동기화 중 일부 값을 건너뛰었습니다.", error);
+        }
+      }
+      render();
     }
 
     function setText(id, value) {
