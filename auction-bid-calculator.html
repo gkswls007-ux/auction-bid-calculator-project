@@ -1631,17 +1631,26 @@
       document.getElementById("helpModal").classList.remove("open");
     }
 
+    function updateAfterInput(id) {
+      syncLoanRate(id);
+      syncPercentCosts(id);
+      try {
+        syncCalculatedFields();
+      } catch (error) {
+        console.warn("입력값 자동계산 동기화 중 일부 값을 건너뛰었습니다.", error);
+      }
+      render();
+    }
+
     document.getElementById("form").addEventListener("submit", (event) => {
       event.preventDefault();
-      render();
+      updateAfterInput("");
     });
 
     ids.forEach((id) => {
       if (moneyIds.includes(id)) return;
       document.getElementById(id).addEventListener("input", () => {
-        syncLoanRate(id);
-        syncPercentCosts(id);
-        render();
+        updateAfterInput(id);
       });
     });
 
@@ -1651,15 +1660,11 @@
         const cursorAtEnd = input.selectionStart === input.value.length;
         formatMoneyInput(input);
         if (cursorAtEnd) input.setSelectionRange(input.value.length, input.value.length);
-        syncLoanRate(id);
-        syncPercentCosts(id);
-        render();
+        updateAfterInput(id);
       });
       input.addEventListener("blur", () => {
         formatMoneyInput(input);
-        syncLoanRate(id);
-        syncPercentCosts(id);
-        render();
+        updateAfterInput(id);
       });
     });
 
