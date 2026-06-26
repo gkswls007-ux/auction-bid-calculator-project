@@ -805,7 +805,7 @@
                   <input id="capitalGainsTax" class="money" inputmode="numeric" value="" data-money="true">
                   <span class="percent-field"><input id="capitalGainsTaxRate" type="number" value="" step="0.01" aria-label="양도세율"></span>
                 </div>
-                <span class="input-hint">해당 건 예상 과세이익 기준 자동계산</span>
+                <span class="input-hint">해당 건 예상 세전수익 기준 자동계산</span>
               </label>
 
               <label>
@@ -1045,7 +1045,7 @@
             <li>5억원 초과~10억원 이하: 42%, 누진공제 3,594만원</li>
             <li>10억원 초과: 45%, 누진공제 6,594만원</li>
           </ul>
-          <p>계산기는 가견적용으로 해당 물건의 예상 과세이익에 위 종합소득세 기본세율과 누진공제를 적용합니다. 예상 과세이익은 희망 매도가에서 입찰가, 보유관리비, 수리비용, 중개수수료를 뺀 금액입니다.</p>
+          <p>계산기는 가견적용으로 해당 물건의 예상 세전수익에 위 종합소득세 기본세율과 누진공제를 적용합니다. 예상 세전수익은 희망 매도가에서 입찰가, 취득비용, 보유비용, 중개수수료를 뺀 금액입니다.</p>
           <p>이번 버전은 해당 건만 따로 계산하며, 같은 해 다른 매매차익 누적분, 다른 종합소득, 지방소득세, 필요경비 인정 여부, 단기보유·비교과세 등은 반영하지 않습니다. 사용자가 금액이나 세율을 직접 수정하면 직접 입력값을 우선합니다.</p>
           <p>참고: <a href="https://www.nts.go.kr/nts/cm/cntnts/cntntsView.do?cntntsId=7667&mi=2227" target="_blank" rel="noreferrer">국세청 종합소득세 세율</a>, <a href="https://www.law.go.kr/LSW//lsLawLinkInfo.do?chrClsCd=010202&lsId=001565&lsJoLnkSeq=1000662023&print=print" target="_blank" rel="noreferrer">소득세법 토지 등 매매차익 예정신고</a></p>
         `
@@ -1152,19 +1152,52 @@
       return input.capitalGainsTax;
     }
 
+    function taxableProfitFromCosts(parts) {
+      return Math.max(0,
+        parts.targetSale
+        - parts.bid
+        - parts.acquisitionTax
+        - parts.legalFee
+        - parts.holdingFee
+        - parts.evictionFee
+        - parts.repairFee
+        - parts.otherFee
+        - parts.interest
+        - parts.extraLoanCost
+        - parts.brokerFee
+      );
+    }
+
     function currentBaseForPair(pair) {
       const appraisal = numberValue("appraisal");
       const bidRate = numberValue("bidRate");
       const bid = appraisal * bidRate / 100;
       if (pair.base === "bid") return bid;
       if (pair.base === "grossProfit") {
+        const loan = bid * numberValue("loanRate") / 100;
+        const acquisitionTax = percentCostModes.acquisitionTax === "rate" ? bid * numberValue("acquisitionTaxRate") / 100 : numberValue("acquisitionTaxAmount");
+        const legalFee = percentCostModes.legalFee === "rate" ? bid * numberValue("legalFeeRate") / 100 : numberValue("legalFee");
+        const interest = loan * numberValue("interestRate") / 100 * numberValue("holdMonths") / 12;
+        const extraLoanCost = loan * numberValue("extraLoanRate") / 100;
         const brokerFee = brokerageFeeFromInput({
           targetSale: numberValue("targetSale"),
           brokerRate: numberValue("brokerRate"),
           brokerFee: numberValue("brokerFee"),
           brokerFeeMode: percentCostModes.brokerFee
         });
-        return Math.max(0, numberValue("targetSale") - bid - numberValue("holdingFee") - numberValue("repairFee") - brokerFee);
+        return taxableProfitFromCosts({
+          targetSale: numberValue("targetSale"),
+          bid,
+          acquisitionTax,
+          legalFee,
+          holdingFee: numberValue("holdingFee"),
+          evictionFee: numberValue("evictionFee"),
+          repairFee: numberValue("repairFee"),
+          otherFee: numberValue("otherFee"),
+          interest,
+          extraLoanCost,
+          brokerFee
+        });
       }
       return numberValue("targetSale");
     }
@@ -1205,7 +1238,7 @@
         if (changedId === pair.amountId) percentCostModes[key] = "amount";
       });
 
-      const baseChanged = ["appraisal", "bidRate", "targetSale", "holdingFee", "repairFee", "brokerFee", "brokerRate"].includes(changedId);
+      const baseChanged = ["appraisal", "bidRate", "targetSale", "loanRate", "interestRate", "holdMonths", "extraLoanRate", "acquisitionTaxAmount", "acquisitionTaxRate", "legalFee", "legalFeeRate", "holdingFee", "evictionFee", "repairFee", "otherFee", "brokerFee", "brokerRate"].includes(changedId);
       Object.entries(percentCostPairs).forEach(([key, pair]) => {
         if (changedId === pair.rateId) {
           syncPairFromRate(key);
@@ -1250,10 +1283,22 @@
       const extraLoanCost = loan * input.extraLoanRate / 100;
       const grossProfit = input.targetSale - bid;
       const brokerFee = brokerageFeeFromInput(input);
-      const taxableProfit = Math.max(0, grossProfit - input.holdingFee - input.repairFee - brokerFee);
-      const capitalGainsTax = capitalGainsTaxFromInput(input, taxableProfit);
       const holdingTotal = input.holdingFee + input.evictionFee + input.repairFee + input.otherFee + interest + extraLoanCost;
       const acquisitionTotal = acquisitionTax + legalFee;
+      const taxableProfit = taxableProfitFromCosts({
+        targetSale: input.targetSale,
+        bid,
+        acquisitionTax,
+        legalFee,
+        holdingFee: input.holdingFee,
+        evictionFee: input.evictionFee,
+        repairFee: input.repairFee,
+        otherFee: input.otherFee,
+        interest,
+        extraLoanCost,
+        brokerFee
+      });
+      const capitalGainsTax = capitalGainsTaxFromInput(input, taxableProfit);
       const sellCost = capitalGainsTax + brokerFee;
       const netProfit = input.targetSale - bid - acquisitionTotal - holdingTotal - sellCost;
       const bidEquity = Math.max(0, bid - loan);
@@ -1632,9 +1677,14 @@
     }
 
     let lastInputSnapshot = "";
+    let lastInputValues = {};
 
-    function captureInputSnapshot() {
-      return ids.map((id) => `${id}:${document.getElementById(id).value}`).join("|");
+    function captureInputValues() {
+      return Object.fromEntries(ids.map((id) => [id, document.getElementById(id).value]));
+    }
+
+    function captureInputSnapshot(values = captureInputValues()) {
+      return ids.map((id) => `${id}:${values[id]}`).join("|");
     }
 
     function updateAfterInput(id) {
@@ -1646,13 +1696,17 @@
         console.warn("입력값 자동계산 동기화 중 일부 값을 건너뛰었습니다.", error);
       }
       render();
-      lastInputSnapshot = captureInputSnapshot();
+      lastInputValues = captureInputValues();
+      lastInputSnapshot = captureInputSnapshot(lastInputValues);
     }
 
     function updateIfInputChanged(id = "") {
-      const currentSnapshot = captureInputSnapshot();
+      const currentValues = captureInputValues();
+      const currentSnapshot = captureInputSnapshot(currentValues);
       if (currentSnapshot === lastInputSnapshot) return;
-      updateAfterInput(id);
+      const changedIds = ids.filter((inputId) => currentValues[inputId] !== lastInputValues[inputId]);
+      const primaryId = id || changedIds.find((inputId) => ["capitalGainsTaxRate", "capitalGainsTax", "brokerRate", "brokerFee"].includes(inputId)) || changedIds[0] || "";
+      updateAfterInput(primaryId);
     }
 
     document.getElementById("form").addEventListener("submit", (event) => {
@@ -1730,7 +1784,8 @@
 
     refreshSavedCases();
     render();
-    lastInputSnapshot = captureInputSnapshot();
+    lastInputValues = captureInputValues();
+    lastInputSnapshot = captureInputSnapshot(lastInputValues);
     window.setInterval(() => updateIfInputChanged(), 250);
   </script>
 </body>
