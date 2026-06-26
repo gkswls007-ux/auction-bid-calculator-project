@@ -227,6 +227,10 @@
       gap: 8px;
     }
 
+    .actions button {
+      flex: 1;
+    }
+
     button {
       height: 38px;
       border: 1px solid var(--line);
@@ -819,7 +823,6 @@
 
           <div class="actions">
             <button type="button" id="reset">초기값</button>
-            <button class="primary" type="submit">계산</button>
           </div>
         </form>
       </section>
@@ -1221,6 +1224,17 @@
       if (baseChanged && percentCostModes.capitalGainsTax === "auto") syncPairFromAuto("capitalGainsTax");
     }
 
+    function syncCalculatedFields() {
+      Object.entries(percentCostPairs).forEach(([key]) => {
+        if (percentCostModes[key] === "rate") syncPairFromRate(key);
+        if (percentCostModes[key] === "amount") syncPairFromAmount(key);
+        if (percentCostModes[key] === "auto") syncPairFromAuto(key);
+      });
+      if (percentCostModes.capitalGainsTax === "auto") syncPairFromAuto("capitalGainsTax");
+      syncLoanRate("appraisal");
+      render();
+    }
+
     function scenarioRates(base, step, count) {
       const safeCount = Math.max(3, Math.min(9, Math.floor(count)));
       const oddCount = safeCount % 2 === 0 ? safeCount + 1 : safeCount;
@@ -1321,9 +1335,8 @@
         Object.assign(percentCostModes, data.modes);
       }
       loanRateMode = data.loanRateMode || (data.loanRate === "" ? "auto" : "manual");
-      if (shouldSync) syncPercentCosts("appraisal");
-      syncLoanRate("appraisal");
-      render();
+      if (shouldSync) syncCalculatedFields();
+      else render();
     }
 
     function setText(id, value) {
