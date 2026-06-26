@@ -1631,6 +1631,12 @@
       document.getElementById("helpModal").classList.remove("open");
     }
 
+    let lastInputSnapshot = "";
+
+    function captureInputSnapshot() {
+      return ids.map((id) => `${id}:${document.getElementById(id).value}`).join("|");
+    }
+
     function updateAfterInput(id) {
       syncLoanRate(id);
       syncPercentCosts(id);
@@ -1640,6 +1646,13 @@
         console.warn("입력값 자동계산 동기화 중 일부 값을 건너뛰었습니다.", error);
       }
       render();
+      lastInputSnapshot = captureInputSnapshot();
+    }
+
+    function updateIfInputChanged(id = "") {
+      const currentSnapshot = captureInputSnapshot();
+      if (currentSnapshot === lastInputSnapshot) return;
+      updateAfterInput(id);
     }
 
     document.getElementById("form").addEventListener("submit", (event) => {
@@ -1647,21 +1660,29 @@
       updateAfterInput("");
     });
 
+    function bindAutoUpdate(input, id, beforeUpdate = () => {}) {
+      const run = () => {
+        beforeUpdate();
+        updateAfterInput(id);
+      };
+      input.addEventListener("input", run);
+      input.addEventListener("change", run);
+      input.addEventListener("keyup", run);
+    }
+
     ids.forEach((id) => {
       if (moneyIds.includes(id)) return;
-      document.getElementById(id).addEventListener("input", () => {
-        updateAfterInput(id);
-      });
+      bindAutoUpdate(document.getElementById(id), id);
     });
 
     moneyIds.forEach((id) => {
       const input = document.getElementById(id);
-      input.addEventListener("input", () => {
+      const formatAndUpdate = () => {
         const cursorAtEnd = input.selectionStart === input.value.length;
         formatMoneyInput(input);
         if (cursorAtEnd) input.setSelectionRange(input.value.length, input.value.length);
-        updateAfterInput(id);
-      });
+      };
+      bindAutoUpdate(input, id, formatAndUpdate);
       input.addEventListener("blur", () => {
         formatMoneyInput(input);
         updateAfterInput(id);
@@ -1709,6 +1730,8 @@
 
     refreshSavedCases();
     render();
+    lastInputSnapshot = captureInputSnapshot();
+    window.setInterval(() => updateIfInputChanged(), 250);
   </script>
 </body>
 </html>
