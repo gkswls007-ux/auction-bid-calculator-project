@@ -1158,7 +1158,7 @@
       const bid = appraisal * bidRate / 100;
       if (pair.base === "bid") return bid;
       if (pair.base === "grossProfit") {
-        const brokerFee = brokerFeeFromInput({
+        const brokerFee = brokerageFeeFromInput({
           targetSale: numberValue("targetSale"),
           brokerRate: numberValue("brokerRate"),
           brokerFee: numberValue("brokerFee"),
