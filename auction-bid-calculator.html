@@ -505,6 +505,14 @@
       font-weight: 800;
     }
 
+    th.base-scenario,
+    td.base-scenario {
+      background: #fff6d8;
+      border-left: 3px solid var(--blue);
+      border-right: 3px solid var(--blue);
+      font-weight: 900;
+    }
+
     .note {
       margin: 0;
       padding: 10px 12px;
@@ -729,10 +737,10 @@
                 <span class="percent-field"><input id="bidRate" type="number" value="" step="0.1"></span>
               </label>
               <label>시나리오 간격
-                <span class="percent-field"><input id="rateStep" type="number" value="" step="0.1"></span>
+                <span class="percent-field"><input id="rateStep" type="number" value="1" step="0.1"></span>
               </label>
               <label>시나리오 개수
-                <input id="scenarioCount" type="number" value="" min="3" max="9" step="2">
+                <input id="scenarioCount" type="number" value="5" min="3" max="9" step="2">
               </label>
             </div>
           </fieldset>
@@ -921,8 +929,8 @@
       deposit: "",
       targetSale: "",
       bidRate: "",
-      rateStep: "",
-      scenarioCount: "",
+      rateStep: "1",
+      scenarioCount: "5",
       loanRate: "",
       interestRate: "",
       holdMonths: "",
@@ -1426,11 +1434,16 @@
       `).join("");
     }
 
-    function renderTable(rows) {
+    function scenarioCellClass(row, baseRate, extraClass = "") {
+      const isBase = Math.abs(row.rate - baseRate) < 0.0001;
+      return [extraClass, isBase ? "base-scenario" : ""].filter(Boolean).join(" ");
+    }
+
+    function renderTable(rows, baseRate) {
       document.getElementById("scenarioHead").innerHTML = `
         <tr>
           <th>구분</th>
-          ${rows.map((row) => `<th>${formatRate(row.rate)}</th>`).join("")}
+          ${rows.map((row) => `<th class="${scenarioCellClass(row, baseRate)}">${formatRate(row.rate)}</th>`).join("")}
         </tr>
       `;
 
@@ -1454,7 +1467,7 @@
             const isRate = key === "roi";
             const value = isRate ? formatRate(row[key]) : formatWon(row[key]);
             const tone = key === "netProfit" ? signedClass(row[key]) : "";
-            return `<td class="${tone}" title="${value}">${value}</td>`;
+            return `<td class="${scenarioCellClass(row, baseRate, tone)}" title="${value}">${value}</td>`;
           }).join("")}
         </tr>
       `).join("");
@@ -1511,7 +1524,7 @@
       setText("updatedAt", "자동 계산");
 
       renderSummary(rows, baseRow);
-      renderTable(rows);
+      renderTable(rows, input.bidRate);
       renderCapitalTable(rows);
     }
 
@@ -1800,8 +1813,8 @@
       setStorageStatus("초기값으로 되돌렸습니다.");
     });
 
+    applyInput(defaults, { sync: false });
     refreshSavedCases();
-    render();
     lastInputValues = captureInputValues();
     lastInputSnapshot = captureInputSnapshot(lastInputValues);
     window.setInterval(() => updateIfInputChanged(), 250);
