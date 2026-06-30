@@ -1019,9 +1019,17 @@
     const STORAGE_KEY = "auctionBidCalculatorCases";
     const DEFAULT_BID_FACTOR_COUNT = 5;
     const BID_FACTOR_TYPES = ["낙찰가율 상승요인", "낙찰가율 하락요인", "평가불가"];
+    const DEFAULT_BID_FACTOR_DETAILS = [
+      "해당 단지 최저매매호가",
+      "해당 단지 거래량",
+      "해당 지역 아파트 시세추이"
+    ];
 
     function createDefaultBidFactors() {
-      return Array.from({ length: DEFAULT_BID_FACTOR_COUNT }, () => ({ type: "", detail: "" }));
+      return Array.from({ length: DEFAULT_BID_FACTOR_COUNT }, (_, index) => ({
+        type: "",
+        detail: DEFAULT_BID_FACTOR_DETAILS[index] || ""
+      }));
     }
 
     let bidFactors = createDefaultBidFactors();
