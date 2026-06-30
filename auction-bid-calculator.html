@@ -550,6 +550,65 @@
       font-size: 12px;
     }
 
+    .memo-section + .memo-section {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+    }
+
+    .memo-section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+      color: #34445a;
+      font-size: 13px;
+    }
+
+    .factor-list {
+      display: grid;
+      gap: 7px;
+    }
+
+    .factor-row {
+      display: grid;
+      grid-template-columns: minmax(170px, 210px) minmax(0, 1fr) 34px;
+      gap: 7px;
+      align-items: center;
+    }
+
+    .factor-row select,
+    .factor-row input {
+      min-width: 0;
+    }
+
+    .factor-action {
+      width: 34px;
+      height: 34px;
+      min-width: 34px;
+      padding: 0;
+      border-color: #b9c7d8;
+      color: var(--blue);
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .factor-remove {
+      color: #b63b45;
+      border-color: #e8bdc1;
+      background: #fff;
+    }
+
+    .factor-empty {
+      padding: 11px;
+      border: 1px dashed #c9d3df;
+      border-radius: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      text-align: center;
+    }
+
     .capital-panel {
       border-top: 1px solid var(--line);
       background: #fff;
@@ -646,6 +705,22 @@
       .case-box, .highlight { grid-template-columns: 1fr 1fr; }
       .storage-actions { flex-wrap: wrap; }
       .storage-actions button { flex: 1 1 120px; }
+
+      .factor-row {
+        grid-template-columns: minmax(0, 1fr) 34px;
+        align-items: stretch;
+      }
+
+      .factor-row select,
+      .factor-detail {
+        grid-column: 1;
+      }
+
+      .factor-remove {
+        grid-column: 2;
+        grid-row: 1 / span 2;
+        height: 100%;
+      }
 
       .case-box > div:nth-child(4n),
       .highlight > div:nth-child(4n) {
@@ -912,9 +987,18 @@
             </div>
           </div>
           <div class="memo-box">
-            <label>메모
-              <textarea id="memo" placeholder="권리관계, 임장 내용, 입찰 판단 근거 등을 기록하세요."></textarea>
-            </label>
+            <section class="memo-section" aria-labelledby="bidFactorTitle">
+              <div class="memo-section-head">
+                <strong id="bidFactorTitle">낙찰가율 판단요인</strong>
+                <button class="factor-action" type="button" id="addBidFactor" title="판단요인 추가" aria-label="낙찰가율 판단요인 추가">+</button>
+              </div>
+              <div class="factor-list" id="bidFactorList"></div>
+            </section>
+            <section class="memo-section">
+              <label>자유 메모
+                <textarea id="memo" placeholder="권리관계, 임장 내용, 그 밖의 입찰 판단 근거 등을 자유롭게 기록하세요."></textarea>
+              </label>
+            </section>
           </div>
         </div>
       </section>
@@ -933,6 +1017,15 @@
 
   <script>
     const STORAGE_KEY = "auctionBidCalculatorCases";
+    const DEFAULT_BID_FACTOR_COUNT = 5;
+    const BID_FACTOR_TYPES = ["낙찰가율 상승요인", "낙찰가율 하락요인", "평가불가"];
+
+    function createDefaultBidFactors() {
+      return Array.from({ length: DEFAULT_BID_FACTOR_COUNT }, () => ({ type: "", detail: "" }));
+    }
+
+    let bidFactors = createDefaultBidFactors();
+
     const defaults = {
       caseNo: "",
       saleStatus: "매각중",
@@ -1398,8 +1491,70 @@
         brokerRate: numberValue("brokerRate"),
         brokerFee: numberValue("brokerFee"),
         brokerFeeMode: percentCostModes.brokerFee,
+        bidFactors: readBidFactors(),
         memo: textValue("memo")
       };
+    }
+
+    function normalizedBidFactors(value) {
+      if (!Array.isArray(value)) return createDefaultBidFactors();
+      return value.map((item) => ({
+        type: BID_FACTOR_TYPES.includes(item?.type) ? item.type : "",
+        detail: String(item?.detail || "")
+      }));
+    }
+
+    function readBidFactors() {
+      return Array.from(document.querySelectorAll(".factor-row")).map((row) => ({
+        type: row.querySelector("select").value,
+        detail: row.querySelector(".factor-detail").value.trim()
+      }));
+    }
+
+    function renderBidFactors() {
+      const list = document.getElementById("bidFactorList");
+      list.innerHTML = "";
+      if (!bidFactors.length) {
+        const empty = document.createElement("div");
+        empty.className = "factor-empty";
+        empty.textContent = "+ 버튼을 눌러 판단요인을 추가하세요.";
+        list.appendChild(empty);
+        return;
+      }
+
+      bidFactors.forEach((factor, index) => {
+        const row = document.createElement("div");
+        row.className = "factor-row";
+
+        const select = document.createElement("select");
+        select.setAttribute("aria-label", `${index + 1}번 판단요인 유형`);
+        select.appendChild(new Option("유형 선택", ""));
+        BID_FACTOR_TYPES.forEach((type) => select.appendChild(new Option(type, type)));
+        select.value = factor.type;
+        select.addEventListener("change", () => { bidFactors[index].type = select.value; });
+
+        const detail = document.createElement("input");
+        detail.className = "factor-detail";
+        detail.type = "text";
+        detail.placeholder = "세부내용을 입력하세요.";
+        detail.setAttribute("aria-label", `${index + 1}번 판단요인 세부내용`);
+        detail.value = factor.detail;
+        detail.addEventListener("input", () => { bidFactors[index].detail = detail.value; });
+
+        const remove = document.createElement("button");
+        remove.className = "factor-action factor-remove";
+        remove.type = "button";
+        remove.textContent = "−";
+        remove.title = "이 판단요인 제거";
+        remove.setAttribute("aria-label", `${index + 1}번 판단요인 제거`);
+        remove.addEventListener("click", () => {
+          bidFactors.splice(index, 1);
+          renderBidFactors();
+        });
+
+        row.append(select, detail, remove);
+        list.appendChild(row);
+      });
     }
 
     function applyInput(data, options = {}) {
@@ -1409,6 +1564,8 @@
         const value = data[id] ?? defaults[id];
         input.value = value === "" ? "" : input.dataset.money === "true" ? formatWon(value) : value;
       });
+      bidFactors = normalizedBidFactors(data.bidFactors);
+      renderBidFactors();
       const modes = data.modes || {};
       const manualModes = data.manualCostModes || {};
       percentCostModes.acquisitionTax = modes.acquisitionTax || data.acquisitionTaxMode || "rate";
@@ -1634,7 +1791,10 @@
         .map(([caseNo, data]) => casePreview(caseNo, data))
         .filter((item) => {
           const original = cases[item.caseNo] || {};
-          const haystack = `${item.caseNo} ${item.address} ${item.saleDate} ${original.approvalDate || ""} ${original.exclusiveArea || ""} ${original.memo || ""}`.toLowerCase();
+          const factorText = Array.isArray(original.bidFactors)
+            ? original.bidFactors.map((factor) => `${factor.type || ""} ${factor.detail || ""}`).join(" ")
+            : "";
+          const haystack = `${item.caseNo} ${item.address} ${item.saleDate} ${original.approvalDate || ""} ${original.exclusiveArea || ""} ${original.memo || ""} ${factorText}`.toLowerCase();
           return !query || haystack.includes(query);
         })
         .sort((a, b) => a.sortValue - b.sortValue || a.caseNo.localeCompare(b.caseNo));
@@ -1813,6 +1973,11 @@
       const item = event.target.closest(".saved-case-item");
       if (!item) return;
       loadSavedCase(item.dataset.caseNo);
+    });
+    document.getElementById("addBidFactor").addEventListener("click", () => {
+      bidFactors = readBidFactors();
+      bidFactors.push({ type: "", detail: "" });
+      renderBidFactors();
     });
 
     document.getElementById("reset").addEventListener("click", () => {
