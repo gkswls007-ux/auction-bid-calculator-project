@@ -22,6 +22,7 @@
     }
 
     * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
 
     body {
       margin: 0;
@@ -609,6 +610,55 @@
       text-align: center;
     }
 
+    .outcome-inputs {
+      display: grid;
+      grid-template-columns: minmax(180px, 240px) minmax(180px, 240px);
+      gap: 10px;
+      align-items: end;
+    }
+
+    .outcome-metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin-top: 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .outcome-metric {
+      min-width: 0;
+      padding: 11px 12px;
+      border-right: 1px solid var(--line);
+      background: #fbfcfe;
+    }
+
+    .outcome-metric:last-child { border-right: 0; }
+
+    .outcome-metric span {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .outcome-metric strong {
+      display: block;
+      overflow-wrap: anywhere;
+      color: #172235;
+      font-size: 16px;
+    }
+
+    .outcome-metric strong.good { color: var(--green); }
+    .outcome-metric strong.bad { color: var(--red); }
+
+    .outcome-note {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
     .capital-panel {
       border-top: 1px solid var(--line);
       background: #fff;
@@ -721,6 +771,18 @@
         grid-row: 1 / span 2;
         height: 100%;
       }
+
+      .outcome-inputs,
+      .outcome-metrics {
+        grid-template-columns: 1fr;
+      }
+
+      .outcome-metric {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .outcome-metric:last-child { border-bottom: 0; }
 
       .case-box > div:nth-child(4n),
       .highlight > div:nth-child(4n) {
@@ -999,6 +1061,44 @@
                 <textarea id="memo" placeholder="권리관계, 임장 내용, 그 밖의 입찰 판단 근거 등을 자유롭게 기록하세요."></textarea>
               </label>
             </section>
+            <section class="memo-section" id="auctionOutcomeSection" aria-labelledby="auctionOutcomeTitle" hidden>
+              <div class="memo-section-head">
+                <strong id="auctionOutcomeTitle">경매 결과</strong>
+              </div>
+              <div class="outcome-inputs">
+                <label>경매 결과
+                  <select id="auctionResult">
+                    <option value="">결과 선택</option>
+                    <option value="낙찰">낙찰</option>
+                    <option value="패찰">패찰</option>
+                  </select>
+                </label>
+                <label id="otherWinningBidRateField" hidden>타인의 낙찰가율
+                  <span class="percent-field"><input id="otherWinningBidRate" type="number" value="" step="0.01" min="0" aria-label="타인의 낙찰가율"></span>
+                </label>
+              </div>
+              <div id="failedAuctionComparison" hidden>
+                <div class="outcome-metrics">
+                  <div class="outcome-metric">
+                    <span>내 기준 낙찰가율</span>
+                    <strong id="outMyBidRate">-</strong>
+                  </div>
+                  <div class="outcome-metric">
+                    <span>낙찰가율 차이</span>
+                    <strong id="outBidRateDifference">-</strong>
+                  </div>
+                  <div class="outcome-metric">
+                    <span>낙찰가 차이금액</span>
+                    <strong id="outBidAmountDifference">-</strong>
+                  </div>
+                  <div class="outcome-metric">
+                    <span>타인 낙찰가 기준 예상 순수익</span>
+                    <strong id="outOtherBidNetProfit">-</strong>
+                  </div>
+                </div>
+                <p class="outcome-note">예상 순수익은 현재 입력된 희망 매도가, 대출, 세금 및 비용 조건을 타인의 낙찰가율에 적용한 가견적입니다.</p>
+              </div>
+            </section>
           </div>
         </div>
       </section>
@@ -1064,6 +1164,8 @@
       capitalGainsTaxRate: "",
       brokerRate: "",
       brokerFee: "",
+      auctionResult: "",
+      otherWinningBidRate: "",
       memo: ""
     };
 
@@ -1499,6 +1601,8 @@
         brokerRate: numberValue("brokerRate"),
         brokerFee: numberValue("brokerFee"),
         brokerFeeMode: percentCostModes.brokerFee,
+        auctionResult: document.getElementById("auctionResult").value,
+        otherWinningBidRate: numberValue("otherWinningBidRate"),
         bidFactors: readBidFactors(),
         memo: textValue("memo")
       };
@@ -1685,6 +1789,46 @@
       `).join("");
     }
 
+    function formatSignedRatePoint(value) {
+      const number = Number(value || 0);
+      const sign = number > 0 ? "+" : "";
+      return `${sign}${number.toFixed(2).replace(/\.00$/, "")}%p`;
+    }
+
+    function formatSignedWon(value) {
+      const number = Math.round(Number(value || 0));
+      return `${number > 0 ? "+" : ""}${formatWon(number)}`;
+    }
+
+    function renderAuctionOutcome(input, baseRow) {
+      const section = document.getElementById("auctionOutcomeSection");
+      const isCompleted = input.saleStatus === "매각완료";
+      const isFailed = isCompleted && input.auctionResult === "패찰";
+      const hasOtherRate = isFailed && input.otherWinningBidRate > 0;
+
+      section.hidden = !isCompleted;
+      document.getElementById("otherWinningBidRateField").hidden = !isFailed;
+      document.getElementById("failedAuctionComparison").hidden = !hasOtherRate;
+      if (!hasOtherRate) return;
+
+      const otherRow = calculateForRate(input, input.otherWinningBidRate);
+      const rateDifference = input.otherWinningBidRate - input.bidRate;
+      const amountDifference = otherRow.bid - baseRow.bid;
+      const rateTone = rateDifference > 0 ? "bad" : rateDifference < 0 ? "good" : "";
+      const profitTone = otherRow.netProfit >= 0 ? "good" : "bad";
+      const rateDifferenceElement = document.getElementById("outBidRateDifference");
+      const amountDifferenceElement = document.getElementById("outBidAmountDifference");
+      const netProfitElement = document.getElementById("outOtherBidNetProfit");
+
+      setText("outMyBidRate", formatRate(input.bidRate));
+      setText("outBidRateDifference", formatSignedRatePoint(rateDifference));
+      setText("outBidAmountDifference", formatSignedWon(amountDifference));
+      setText("outOtherBidNetProfit", formatWon(otherRow.netProfit));
+      rateDifferenceElement.className = rateTone;
+      amountDifferenceElement.className = rateTone;
+      netProfitElement.className = profitTone;
+    }
+
     function render() {
       const input = readInput();
       const rows = scenarioRates(input.bidRate, input.rateStep, input.scenarioCount).map((rate) => calculateForRate(input, rate));
@@ -1707,6 +1851,7 @@
       renderSummary(rows, baseRow);
       renderTable(rows, input.bidRate);
       renderCapitalTable(rows);
+      renderAuctionOutcome(input, baseRow);
     }
 
     function getSavedCases() {
