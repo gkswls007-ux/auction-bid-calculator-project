@@ -1117,6 +1117,7 @@
 
   <script>
     const STORAGE_KEY = "auctionBidCalculatorCases";
+    const LOAN_POLICY_VERSION = "regional-business-appraisal-60-v1";
     const DEFAULT_BID_FACTOR_COUNT = 5;
     const BID_FACTOR_TYPES = ["낙찰가율 상승요인", "낙찰가율 하락요인", "평가불가"];
     const DEFAULT_BID_FACTOR_DETAILS = [
@@ -1320,13 +1321,15 @@
       return value.toFixed(2).replace(/\.?0+$/, "");
     }
 
-    function estimatedLoanRate() {
-      const appraisal = numberValue("appraisal");
-      const bidRate = numberValue("bidRate");
+    function estimatedLoanRateForValues(appraisal, bidRate) {
       const bid = appraisal * bidRate / 100;
       if (!appraisal || !bidRate || !bid) return "";
       const estimatedLoan = Math.min(appraisal * 0.6, bid * 0.8);
-      return estimatedLoan / bid * 100;
+      return Number(formatInputRate(estimatedLoan / bid * 100));
+    }
+
+    function estimatedLoanRate() {
+      return estimatedLoanRateForValues(numberValue("appraisal"), numberValue("bidRate"));
     }
 
     function syncLoanRate(changedId) {
@@ -1872,6 +1875,26 @@
       localStorage.setItem(STORAGE_KEY, JSON.stringify(cases));
     }
 
+    function migrateSavedLoanEstimates() {
+      const cases = getSavedCases();
+      let migratedCount = 0;
+
+      Object.values(cases).forEach((data) => {
+        const hasExplicitMode = data.loanRateMode === "auto" || data.loanRateMode === "manual";
+        const isAuto = data.loanRateMode === "auto" || (!hasExplicitMode && (data.loanRate === "" || data.loanRate == null));
+        if (!isAuto || data.loanPolicyVersion === LOAN_POLICY_VERSION) return;
+
+        data.loanRate = estimatedLoanRateForValues(parseMoney(data.appraisal), Number(data.bidRate || 0));
+        data.loanRateMode = "auto";
+        data.loanPolicyVersion = LOAN_POLICY_VERSION;
+        data.loanPolicyUpdatedAt = new Date().toISOString();
+        migratedCount += 1;
+      });
+
+      if (migratedCount) setSavedCases(cases);
+      return migratedCount;
+    }
+
     let selectedSavedCaseNo = "";
 
     function escapeHtml(value) {
@@ -1989,6 +2012,7 @@
         modes: { ...percentCostModes },
         manualCostModes: { ...manualCostModes },
         loanRateMode,
+        loanPolicyVersion: LOAN_POLICY_VERSION,
         savedAt: new Date().toISOString()
       };
       setSavedCases(cases);
@@ -2153,8 +2177,12 @@
       setStorageStatus("초기값으로 되돌렸습니다.");
     });
 
+    const migratedLoanCaseCount = migrateSavedLoanEstimates();
     applyInput(defaults, { sync: false });
     refreshSavedCases();
+    if (migratedLoanCaseCount) {
+      setStorageStatus(`저장 사건 ${migratedLoanCaseCount}건의 자동 대출기준을 60%로 갱신했습니다.`);
+    }
     lastInputValues = captureInputValues();
     lastInputSnapshot = captureInputSnapshot(lastInputValues);
     window.setInterval(() => updateIfInputChanged(), 250);
